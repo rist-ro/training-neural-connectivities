@@ -211,24 +211,24 @@ def NetworkTrainer(network, data, mypath, myseed, batchsize, maxepochs):
     return 0
 
 
-def PrepareMaskedMLP(data, myseed, initializer, activation, masktype, trainW, trainM, p1, abg):
+def PrepareMaskedMLP(data, myseed, initializer, activation, masktype, trainW, trainM, p1, alpha):
     dense_arch = [data[0].shape[-1], 300, 100, data[-1]]
-    network = Networks.makeMaskedMLP(dense_arch, activation, myseed, initializer, masktype, trainW, trainM, p1, abg)
+    network = Networks.makeMaskedMLP(dense_arch, activation, myseed, initializer, masktype, trainW, trainM, p1, alpha)
     return network
 
 
-def PrepareConvolutional(csize, data, myseed, initializer, activation, masktype, trainW, trainM, p1, abg):
+def PrepareConvolutional(csize, data, myseed, initializer, activation, masktype, trainW, trainM, p1, alpha):
     if csize == 2:
-        return PrepareConv2(data, myseed, initializer, activation, masktype, trainW, trainM, p1, abg)
+        return PrepareConv2(data, myseed, initializer, activation, masktype, trainW, trainM, p1, alpha)
 
     if csize == 4:
-        return PrepareConv4(data, myseed, initializer, activation, masktype, trainW, trainM, p1, abg)
+        return PrepareConv4(data, myseed, initializer, activation, masktype, trainW, trainM, p1, alpha)
 
     if csize == 6:
-        return PrepareConv6(data, myseed, initializer, activation, masktype, trainW, trainM, p1, abg)
+        return PrepareConv6(data, myseed, initializer, activation, masktype, trainW, trainM, p1, alpha)
 
 
-def PrepareConv6(data, myseed, initializer, activation, masktype, trainW, trainM, p1, abg):
+def PrepareConv6(data, myseed, initializer, activation, masktype, trainW, trainM, p1, alpha):
     in_shape = data[0][0].shape
 
     k = 3
@@ -237,14 +237,14 @@ def PrepareConv6(data, myseed, initializer, activation, masktype, trainW, trainM
                 [k, k, 128, 256], [k, k, 256, 256], []]
 
     dense_arch = [256, 256, data[-1]]
-    network = Networks.makeMaskedCNN(in_shape, cnn_arch, dense_arch, activation, myseed, initializer, masktype, trainW, trainM, p1, abg)
+    network = Networks.makeMaskedCNN(in_shape, cnn_arch, dense_arch, activation, myseed, initializer, masktype, trainW, trainM, p1, alpha)
 
     # network = Networks.makeFullyMaskedCNNNoMaxPool(in_shape, cnn_arch, dense_arch, activation, myseed, initializer, masktype, trainW, trainM, p1, abg)
 
     return network
 
 
-def PrepareConv4(data, myseed, initializer, activation, masktype, trainW, trainM, p1, abg):
+def PrepareConv4(data, myseed, initializer, activation, masktype, trainW, trainM, p1, alpha):
     in_shape = data[0][0].shape
 
     k = 3
@@ -252,18 +252,18 @@ def PrepareConv4(data, myseed, initializer, activation, masktype, trainW, trainM
                 [k, k, 64, 128], [k, k, 128, 128], []]
 
     dense_arch = [256, 256, data[-1]]
-    network = Networks.makeMaskedCNN(in_shape, cnn_arch, dense_arch, activation, myseed, initializer, masktype, trainW, trainM, p1, abg)
+    network = Networks.makeMaskedCNN(in_shape, cnn_arch, dense_arch, activation, myseed, initializer, masktype, trainW, trainM, p1, alpha)
 
     return network
 
 
-def PrepareConv2(data, myseed, initializer, activation, masktype, trainW, trainM, p1, abg):
+def PrepareConv2(data, myseed, initializer, activation, masktype, trainW, trainM, p1, alpha):
     in_shape = data[0][0].shape
 
     k = 3
     cnn_arch = [[k, k, 3, 64], [k, k, 64, 64], []]
     dense_arch = [256, 256, data[-1]]
-    network = Networks.makeMaskedCNN(in_shape, cnn_arch, dense_arch, activation, myseed, initializer, masktype, trainW, trainM, p1, abg)
+    network = Networks.makeMaskedCNN(in_shape, cnn_arch, dense_arch, activation, myseed, initializer, masktype, trainW, trainM, p1, alpha)
 
     return network
 
@@ -280,11 +280,11 @@ def main():
     Masktypes = ["mask", "mask_rs", "flip"]
 
     ParamTrainingTypes = {
-        "Baseline": [(True, False), (0, 1, -1)],
-        "FreePruning": [(False, True), (0, 1, -1)],
-        "MinPruning": [(False, True), (1, 1, -1)],
-        "SignFlipping": [(False, True), (0, 1, -1)],
-        "MinFlipping": [(False, True), (1, 1, -1)],
+        "Baseline": [(True, False), 0],
+        "FreePruning": [(False, True), 0],
+        "MinPruning": [(False, True), -1],
+        "SignFlipping": [(False, True), 0],
+        "MinFlipping": [(False, True), -1],
     }
 
     # the default probability that the sign of a weight is
@@ -296,24 +296,20 @@ def main():
 
     # self explanatory parameters
     batchsize = 25
-    maxepochs = 1
-
-    # The overall scaling factor for the input data in case we want to run a
-    # network with a single weight (use "binary" for the initializer).
-    # It depends on the network architecture and is pre-calculated below.
-    W = 1
+    maxepochs = 100
 
     runConvx = True
     if runConvx:
-        trainingtype = "FreePruning"
+        trainingtype = "MinPruning"
         initializer = "heconstant"
         activation = 'relu'
         masktype = "mask"
         csize = 6
 
+        W = 1
+        # W scaling factor depends on the architecture.
+        # Here we have it pre-calculated
         if initializer == "binary":
-            # W scaling factor depends on the architecture, as written in the paper.
-            # Here we have it pre-calculated
             if csize == 6:
                 W = 8.344820201940066e-12
             if csize == 4:
@@ -322,7 +318,7 @@ def main():
                 W = 1.384305440187043e-06
 
         trainWeights, trainMasks = ParamTrainingTypes[trainingtype][0]
-        alpha_beta_gama = ParamTrainingTypes[trainingtype][1]
+        alpha = ParamTrainingTypes[trainingtype][1]
 
         if trainingtype == "Baseline":
             if csize == 2:
@@ -364,20 +360,20 @@ def main():
             if csize == 6:
                 lr = 0.0005
 
-        outputpath = "Outputs/test/" + trainingtype
+        outputpath = "Outputs/" + trainingtype
         outputpath += "/Conv" + str(csize)
         outputpath += "/P1_" + str(p1)
         outputpath += "/" + masktype + "_" + activation + "_" + initializer + "_LR" + str(lr) + "/"
         print(outputpath)
 
         data = utils.SetMyData("CIFAR", W)
-        network = PrepareConvolutional(csize, data, myseed, initializer, activation, masktype, trainWeights, trainMasks, p1, alpha_beta_gama)
+        network = PrepareConvolutional(csize, data, myseed, initializer, activation, masktype, trainWeights, trainMasks, p1, alpha)
         network.summary()
         network.compile(loss='categorical_crossentropy', optimizer=tf.keras.optimizers.Adam(lr=lr), metrics=['accuracy'])
         NetworkTrainer(network, data, outputpath, myseed, batchsize, maxepochs)
         KB.clear_session()
 
-    runLeNet = True
+    runLeNet = False
     if runLeNet:
         trainingtype = "FreePruning"
         initializer = "heconstant"
@@ -385,20 +381,21 @@ def main():
         masktype = "mask"
         lr = 0.001
 
+        W = 1
         if initializer == "binary":
             W = 0.0005942073791483592
 
         trainWeights, trainMasks = ParamTrainingTypes[trainingtype][0]
-        alpha_beta_gama = ParamTrainingTypes[trainingtype][1]
+        alpha = ParamTrainingTypes[trainingtype][1]
 
-        outputpath = "Outputs/test/" + trainingtype
+        outputpath = "Outputs/" + trainingtype
         outputpath += "/LeNet"
         outputpath += "/P1_" + str(p1)
         outputpath += "/" + masktype + "_" + activation + "_" + initializer + "_LR" + str(lr) + "/"
         print(outputpath)
 
         data = utils.SetMyData("MNIST", W)
-        network = PrepareMaskedMLP(data, myseed, initializer, activation, masktype, trainWeights, trainMasks, p1, alpha_beta_gama)
+        network = PrepareMaskedMLP(data, myseed, initializer, activation, masktype, trainWeights, trainMasks, p1, alpha)
         network.compile(loss='categorical_crossentropy', optimizer=tf.keras.optimizers.Adam(lr=lr), metrics=['accuracy'])
         network.summary()
         NetworkTrainer(network, data, outputpath, myseed, batchsize, maxepochs)

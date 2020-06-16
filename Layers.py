@@ -13,7 +13,7 @@ maxval = 0.1
 
 
 class MaskedConv2D(Layer):
-    def __init__(self, ksize, filters, activation, seed, initializer, stride, masktype, trainweights, trainmask, p1, abg, **kwargs):
+    def __init__(self, ksize, filters, activation, seed, initializer, stride, masktype, trainweights, trainmask, p1, alpha, **kwargs):
         self.filters = filters
 
         # used for weight initialization
@@ -22,7 +22,7 @@ class MaskedConv2D(Layer):
 
         self.p1 = p1
 
-        self.alpha, self.beta, self.gamma = abg
+        self.alpha = alpha
 
         if stride is not None:
             self.stride = stride
@@ -72,7 +72,7 @@ class MaskedConv2D(Layer):
         self.score = self.add_weight(name='score', shape=kshape, initializer=si, trainable=self.trainM)
 
         if self.alpha != 0:
-            self.add_loss(self.alpha * (self.beta + self.gamma * tf.reduce_mean(self.masktype(self.score))))
+            self.add_loss(self.alpha * tf.reduce_mean(self.masktype(self.score)))
 
         super(MaskedConv2D, self).build(input_shape)  # Be sure to call this at the end
 
@@ -92,7 +92,7 @@ class MaskedConv2D(Layer):
     def compute_output_shape(self, input_shape):
         return (input_shape.as_list()[1], self.output_dim)
 
-    # called for a layer's weights, ignored (apparently) if called from the Model
+    # called for a layer's weights
     def get_weights(self):
         return K.eval(self.kernel)
 
@@ -120,14 +120,14 @@ class MaskedConv2D(Layer):
 
 class MaskedDense(Layer):
 
-    def __init__(self, output_dim, activation, seed, initializer, masktype, trainweights, trainmask, p1, abg, **kwargs):
+    def __init__(self, output_dim, activation, seed, initializer, masktype, trainweights, trainmask, p1, alpha, **kwargs):
         self.output_dim = output_dim
 
         # used for weight initialization
         self.seed = seed
         self.p1 = p1
 
-        self.alpha, self.beta, self.gamma = abg
+        self.alpha = alpha
 
         self.initializer = initializer
 
@@ -174,7 +174,7 @@ class MaskedDense(Layer):
         self.score = self.add_weight(name='score', shape=kshape, initializer=si, trainable=self.trainM)
 
         if self.alpha != 0:
-            self.add_loss(self.alpha * (self.beta + self.gamma * tf.reduce_mean(self.masktype(self.score))))
+            self.add_loss(self.alpha * tf.reduce_mean(self.masktype(self.score)))
 
         super(MaskedDense, self).build(input_shape)  # Be sure to call this at the end
 
@@ -194,9 +194,8 @@ class MaskedDense(Layer):
     def compute_output_shape(self, input_shape):
         return (input_shape.as_list()[1], self.output_dim)
 
-    # called for a layer's weights, ignored (apparently) if called from the Model
+    # called for a layer's weights
     def get_weights(self):
-        # w = super(MyDenseLayer, self).get_weights()
         return K.eval(self.kernel)
 
     def get_pruneamount(self):
