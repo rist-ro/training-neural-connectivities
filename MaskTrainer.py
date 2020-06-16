@@ -27,6 +27,21 @@ tf.compat.v1.keras.backend.set_session(get_session())
 
 currentFileName = os.path.basename(__file__).replace(".py", "")
 
+import argparse
+
+parser = argparse.ArgumentParser()
+parser.add_argument('--traintype', type=str, default='MinPruning', choices=["Baseline", "FreePruning", "MinPruning", "SignFlipping", "MinFlipping"])
+parser.add_argument('--initializer', type=str, default='glorot', choices=["glorot", "he", "heconstant", "binary"])
+parser.add_argument('--activation', type=str, default='relu', choices=["relu", "swish", "sigmoid", "elu", "selu"])
+parser.add_argument('--masktype', type=str, default='mask', choices=["mask", "mask_rs", "flip"])
+parser.add_argument('--batchsize', type=int, default=25)
+parser.add_argument('--maxepochs', type=int, default=100)
+parser.add_argument('--seed', '-s', type=int, default=0)
+parser.add_argument('--p1', type=float, default=0.5)
+parser.add_argument('--lr', type=float, default=1e-3)
+
+args = parser.parse_args()
+
 
 def SaveResults(mypath, Logs, masks, runName):
     file = open(mypath + "TrainLogs" + runName + ".pkl", "wb")
@@ -104,7 +119,6 @@ def NetworkTrainer(network, data, mypath, myseed, batchsize, maxepochs):
 
     Xtrain, Ytrain, Xval, Yval, Xtest, Ytest, nclasses = data
 
-    network.summary()
     print(mypath)
 
     # save the network weights
@@ -268,7 +282,7 @@ def PrepareConv2(data, myseed, initializer, activation, masktype, trainW, trainM
     return network
 
 
-def main():
+def main(args):
     np.random.seed(None)
     myseed = np.random.randint(0, 123456789)
     # myseed = 2782341
@@ -300,7 +314,8 @@ def main():
 
     runConvx = True
     if runConvx:
-        trainingtype = "MinPruning"
+        trainingtype = args.traintype
+
         initializer = "heconstant"
         activation = 'relu'
         masktype = "mask"
@@ -368,8 +383,9 @@ def main():
 
         data = utils.SetMyData("CIFAR", W)
         network = PrepareConvolutional(csize, data, myseed, initializer, activation, masktype, trainWeights, trainMasks, p1, alpha)
-        network.summary()
         network.compile(loss='categorical_crossentropy', optimizer=tf.keras.optimizers.Adam(lr=lr), metrics=['accuracy'])
+        network.summary()
+
         NetworkTrainer(network, data, outputpath, myseed, batchsize, maxepochs)
         KB.clear_session()
 
@@ -398,9 +414,10 @@ def main():
         network = PrepareMaskedMLP(data, myseed, initializer, activation, masktype, trainWeights, trainMasks, p1, alpha)
         network.compile(loss='categorical_crossentropy', optimizer=tf.keras.optimizers.Adam(lr=lr), metrics=['accuracy'])
         network.summary()
+
         NetworkTrainer(network, data, outputpath, myseed, batchsize, maxepochs)
         KB.clear_session()
 
 
 if __name__ == '__main__':
-    main()
+    main(args)
