@@ -29,7 +29,7 @@ parser.add_argument('--activation', type=str, default='relu', choices=["relu", "
 parser.add_argument('--masktype', type=str, default='mask', choices=["mask", "mask_rs", "flip"])
 parser.add_argument('--batchsize', type=int, default=25)
 parser.add_argument('--maxepochs', type=int, default=100)
-parser.add_argument('--seed', '-s', type=int, default=None)
+parser.add_argument('--seed', type=int, default=1234)
 parser.add_argument('--p1', type=float, default=0.5)
 parser.add_argument('--lr', type=float, default=1e-3)
 parser.add_argument('--outputpath', type=str, default="Outputs")
@@ -278,7 +278,7 @@ def main(args):
     lr = args.lr
     W = 1
     batchsize = args.batchsize
-    maxepochs = 5  # args.maxepochs
+    maxepochs = args.maxepochs
     trainingtype = args.traintype
     initializer = args.initializer
     activation = args.activation
