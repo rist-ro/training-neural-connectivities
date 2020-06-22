@@ -6,13 +6,9 @@ os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
 # os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 
 import numpy as np
-from numpy.random import seed
-import time, uuid, pickle
-import tensorflow.keras
-from tensorflow.keras import backend as KB
-
 import tensorflow as tf
-import Networks, utils
+from tensorflow.keras import backend as kb
+import tensorflow.keras, time, uuid, pickle, argparse, Networks, utils
 
 print("TF version:        ", tf.__version__)
 print("TF.keras version:  ", tensorflow.keras.__version__)
@@ -25,13 +21,10 @@ def get_session(gpu_fraction=0.80):
 
 tf.compat.v1.keras.backend.set_session(get_session())
 
-currentFileName = os.path.basename(__file__).replace(".py", "")
-
-import argparse
-
 parser = argparse.ArgumentParser()
-parser.add_argument('--traintype', type=str, default='MinPruning', choices=["Baseline", "FreePruning", "MinPruning", "SignFlipping", "MinFlipping"])
-parser.add_argument('--initializer', type=str, default='glorot', choices=["glorot", "he", "heconstant", "binary"])
+parser.add_argument('--nettype', type=str, default='LeNet', choices=["LeNet", "Conv2", "Conv4", "Conv6"])
+parser.add_argument('--traintype', type=str, default='FreePruning', choices=["Baseline", "FreePruning", "MinPruning", "SignFlipping", "MinFlipping"])
+parser.add_argument('--initializer', type=str, default='heconstant', choices=["glorot", "he", "heconstant", "binary"])
 parser.add_argument('--activation', type=str, default='relu', choices=["relu", "swish", "sigmoid", "elu", "selu"])
 parser.add_argument('--masktype', type=str, default='mask', choices=["mask", "mask_rs", "flip"])
 parser.add_argument('--batchsize', type=int, default=25)
@@ -39,6 +32,7 @@ parser.add_argument('--maxepochs', type=int, default=100)
 parser.add_argument('--seed', '-s', type=int, default=0)
 parser.add_argument('--p1', type=float, default=0.5)
 parser.add_argument('--lr', type=float, default=1e-3)
+parser.add_argument('--outputpath', type=str, default="Outputs")
 
 args = parser.parse_args()
 
@@ -173,7 +167,7 @@ def NetworkTrainer(network, data, mypath, myseed, batchsize, maxepochs):
 
         print("\nepoch {}/{}".format(epoch + 1, maxepochs))
 
-        runName = "_Wj" + str(remaining) + "_BS" + str(batchsize) + "_ID" + RunID[-7:]
+        runName = "_ID" + RunID[-7:] + "_Wj" + str(remaining)
         runName += "_SD" + str(myseed)
         runName += '_PP{:.8f}'.format(remaining / total)
         runName += '_PS' + str(epoch)
@@ -253,8 +247,6 @@ def PrepareConv6(data, myseed, initializer, activation, masktype, trainW, trainM
     dense_arch = [256, 256, data[-1]]
     network = Networks.makeMaskedCNN(in_shape, cnn_arch, dense_arch, activation, myseed, initializer, masktype, trainW, trainM, p1, alpha)
 
-    # network = Networks.makeFullyMaskedCNNNoMaxPool(in_shape, cnn_arch, dense_arch, activation, myseed, initializer, masktype, trainW, trainM, p1, abg)
-
     return network
 
 
@@ -283,10 +275,6 @@ def PrepareConv2(data, myseed, initializer, activation, masktype, trainW, trainM
 
 
 def main(args):
-    np.random.seed(None)
-    myseed = np.random.randint(0, 123456789)
-    # myseed = 2782341
-
     # Available names for training types and other params
     TrainingTypes = ["Baseline", "FreePruning", "MinPruning", "SignFlipping", "MinFlipping"]
     Initializers = ["heconstant", "he", "glorot", "binary"]
@@ -301,27 +289,27 @@ def main(args):
         "MinFlipping": [(False, True), -1],
     }
 
-    # the default probability that the sign of a weight is
-    # negative if we use the "heconstant" or "binary" initializer
-    p1 = 0.5
+    myseed = args.seed
+    p1 = args.p1
+    lr = args.lr
+    W = 1
+    batchsize = args.batchsize
+    maxepochs = args.maxepochs
+    trainingtype = args.traintype
+    initializer = args.initializer
+    activation = args.activation
+    masktype = args.masktype
+    outputpath = args.outputpath + "/" + trainingtype
 
-    # the default learning rate
-    lr = 0.001
+    trainWeights, trainMasks = ParamTrainingTypes[trainingtype][0]
+    alpha = ParamTrainingTypes[trainingtype][1]
 
-    # self explanatory parameters
-    batchsize = 25
-    maxepochs = 100
+    data = None
+    network = None
 
-    runConvx = True
-    if runConvx:
-        trainingtype = args.traintype
+    if "Conv" in args.nettype:
+        csize = int(args.nettype[-1])
 
-        initializer = "heconstant"
-        activation = 'relu'
-        masktype = "mask"
-        csize = 6
-
-        W = 1
         # W scaling factor depends on the architecture.
         # Here we have it pre-calculated
         if initializer == "binary":
@@ -332,91 +320,24 @@ def main(args):
             if csize == 2:
                 W = 1.384305440187043e-06
 
-        trainWeights, trainMasks = ParamTrainingTypes[trainingtype][0]
-        alpha = ParamTrainingTypes[trainingtype][1]
-
-        if trainingtype == "Baseline":
-            if csize == 2:
-                lr = 0.0002
-            if csize == 4:
-                lr = 0.0003
-            if csize == 6:
-                lr = 0.0002
-
-        if trainingtype == "FreePruning":
-            if csize == 2:
-                lr = 0.003
-            if csize == 4:
-                lr = 0.003
-            if csize == 6:
-                lr = 0.003
-
-        if trainingtype == "MinPruning":
-            if csize == 2:
-                lr = 0.003
-            if csize == 4:
-                lr = 0.003
-            if csize == 6:
-                lr = 0.003
-
-        if trainingtype == "SignFlipping":
-            if csize == 2:
-                lr = 0.0005
-            if csize == 4:
-                lr = 0.0005
-            if csize == 6:
-                lr = 0.0005
-
-        if trainingtype == "MinFlipping":
-            if csize == 2:
-                lr = 0.0005
-            if csize == 4:
-                lr = 0.0005
-            if csize == 6:
-                lr = 0.0005
-
-        outputpath = "Outputs/" + trainingtype
-        outputpath += "/Conv" + str(csize)
-        outputpath += "/P1_" + str(p1)
-        outputpath += "/" + masktype + "_" + activation + "_" + initializer + "_LR" + str(lr) + "/"
-        print(outputpath)
-
         data = utils.SetMyData("CIFAR", W)
+        outputpath += "/Conv" + str(csize)
         network = PrepareConvolutional(csize, data, myseed, initializer, activation, masktype, trainWeights, trainMasks, p1, alpha)
-        network.compile(loss='categorical_crossentropy', optimizer=tf.keras.optimizers.Adam(lr=lr), metrics=['accuracy'])
-        network.summary()
 
-        NetworkTrainer(network, data, outputpath, myseed, batchsize, maxepochs)
-        KB.clear_session()
-
-    runLeNet = False
-    if runLeNet:
-        trainingtype = "FreePruning"
-        initializer = "heconstant"
-        activation = 'relu'
-        masktype = "mask"
-        lr = 0.001
-
-        W = 1
+    if args.nettype == "LeNet":
         if initializer == "binary":
             W = 0.0005942073791483592
 
-        trainWeights, trainMasks = ParamTrainingTypes[trainingtype][0]
-        alpha = ParamTrainingTypes[trainingtype][1]
-
-        outputpath = "Outputs/" + trainingtype
-        outputpath += "/LeNet"
-        outputpath += "/P1_" + str(p1)
-        outputpath += "/" + masktype + "_" + activation + "_" + initializer + "_LR" + str(lr) + "/"
-        print(outputpath)
-
         data = utils.SetMyData("MNIST", W)
+        outputpath += "/LeNet"
         network = PrepareMaskedMLP(data, myseed, initializer, activation, masktype, trainWeights, trainMasks, p1, alpha)
-        network.compile(loss='categorical_crossentropy', optimizer=tf.keras.optimizers.Adam(lr=lr), metrics=['accuracy'])
-        network.summary()
 
-        NetworkTrainer(network, data, outputpath, myseed, batchsize, maxepochs)
-        KB.clear_session()
+    outputpath += "/P1_" + str(p1)
+    outputpath += "/" + masktype + "_" + activation + "_" + initializer + "_LR" + str(lr) + "/"
+    network.compile(loss='categorical_crossentropy', optimizer=tf.keras.optimizers.Adam(lr=lr), metrics=['accuracy'])
+    network.summary()
+    NetworkTrainer(network, data, outputpath, myseed, batchsize, maxepochs)
+    kb.clear_session()
 
 
 if __name__ == '__main__':
