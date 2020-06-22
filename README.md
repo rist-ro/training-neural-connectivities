@@ -1,8 +1,7 @@
-# Training highly effective connectivities within neural networks with randomly initialized, fixed weights
+# Self-pruning neural networks
 
 
-This repository contains the code for the experiments shown in 
-["paper"](www.google.com)
+This repository contains the code for the experiments from this ["paper"](https://www.google.com/)
 
 ### Requirements
 - [numpy](https://numpy.org/)

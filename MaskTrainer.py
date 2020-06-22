@@ -23,13 +23,13 @@ tf.compat.v1.keras.backend.set_session(get_session())
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--nettype', type=str, default='LeNet', choices=["LeNet", "Conv2", "Conv4", "Conv6"])
-parser.add_argument('--traintype', type=str, default='FreePruning', choices=["Baseline", "FreePruning", "MinPruning", "SignFlipping", "MinFlipping"])
+parser.add_argument('--traintype', type=str, default='FreePruning', choices=["Baseline", "FreePruning", "MinPruning", "FreeFlipping", "MinFlipping"])
 parser.add_argument('--initializer', type=str, default='heconstant', choices=["glorot", "he", "heconstant", "binary"])
 parser.add_argument('--activation', type=str, default='relu', choices=["relu", "swish", "sigmoid", "elu", "selu"])
 parser.add_argument('--masktype', type=str, default='mask', choices=["mask", "mask_rs", "flip"])
 parser.add_argument('--batchsize', type=int, default=25)
 parser.add_argument('--maxepochs', type=int, default=100)
-parser.add_argument('--seed', type=int, default=1234)
+parser.add_argument('--seed', type=int, default=0)
 parser.add_argument('--p1', type=float, default=0.5)
 parser.add_argument('--lr', type=float, default=1e-3)
 parser.add_argument('--outputpath', type=str, default="Outputs")
@@ -73,7 +73,7 @@ def getcountsperlayer(net):
 
         counts.append([NegativeMasks, ZeroMasks, PositiveMasks, NegativeMW, ZeroMW, PositiveMW])
 
-        print("Layer", l, "counts:", np.asarray(counts[-1]) / m.size, counts[-1])
+        # print("Layer", l, "counts:", np.asarray(counts[-1]) / m.size, counts[-1])
 
     return counts
 
@@ -140,14 +140,14 @@ def NetworkTrainer(network, data, mypath, myseed, batchsize, maxepochs):
     RemainingWeights = np.asarray([remaining])
     RemainingWeightsPerLayer = [getcountsperlayer(network)]
 
-    Logs = {"trainLoss": TrainLoss,
-            "testLoss": TestLoss,
-            "valLoss": ValLoss,
-            "trainAccuracy": TrainAccuracy,
-            "testAccuracy": TestAccuracy,
-            "valAccuracy": ValAccuracy,
-            "remainingWeights": RemainingWeights,
-            "remainingWeightsPerLayer": RemainingWeightsPerLayer}
+    # Logs = {"trainLoss": TrainLoss,
+    #         "testLoss": TestLoss,
+    #         "valLoss": ValLoss,
+    #         "trainAccuracy": TrainAccuracy,
+    #         "testAccuracy": TestAccuracy,
+    #         "valAccuracy": ValAccuracy,
+    #         "remainingWeights": RemainingWeights,
+    #         "remainingWeightsPerLayer": RemainingWeightsPerLayer}
 
     runName = "_ID" + RunID[-7:]
 
@@ -183,20 +183,19 @@ def NetworkTrainer(network, data, mypath, myseed, batchsize, maxepochs):
         RemainingWeights = np.append(RemainingWeights, remaining)
         RemainingWeightsPerLayer.append(getcountsperlayer(network))
 
-        Logs = {"trainLoss": TrainLoss,
-                "testLoss": TestLoss,
-                "valLoss": ValLoss,
-                "trainAccuracy": TrainAccuracy,
-                "testAccuracy": TestAccuracy,
-                "valAccuracy": ValAccuracy,
-                "remainingWeights": RemainingWeights,
-                "remainingWeightsPerLayer": RemainingWeightsPerLayer}
-
         epoch += 1
 
-        print("Output:", mypath + runName)
         print("Execution time: {:.3f} seconds".format(end_time - start_time))
         print("=============================================================")
+
+    Logs = {"trainLoss": TrainLoss,
+            "testLoss": TestLoss,
+            "valLoss": ValLoss,
+            "trainAccuracy": TrainAccuracy,
+            "testAccuracy": TestAccuracy,
+            "valAccuracy": ValAccuracy,
+            "remainingWeights": RemainingWeights,
+            "remainingWeightsPerLayer": RemainingWeightsPerLayer}
 
     file = open(mypath + "Masks" + runName + ".pkl", "wb")
     pickle.dump(getmasks(network), file)
@@ -205,6 +204,8 @@ def NetworkTrainer(network, data, mypath, myseed, batchsize, maxepochs):
     file = open(mypath + "TrainLogs" + runName + ".pkl", "wb")
     pickle.dump(Logs, file)
     file.close()
+
+    print("Files saved in", mypath)
 
     return 0
 
@@ -269,11 +270,11 @@ def main(args):
         "Baseline": [(True, False), 0],
         "FreePruning": [(False, True), 0],
         "MinPruning": [(False, True), -1],
-        "SignFlipping": [(False, True), 0],
+        "FreeFlipping": [(False, True), 0],
         "MinFlipping": [(False, True), -1],
     }
 
-    myseed = args.seed
+    myseed = None if args.seed == 0 else args.seed
     p1 = args.p1
     lr = args.lr
     W = 1
@@ -294,8 +295,7 @@ def main(args):
     if "Conv" in args.nettype:
         csize = int(args.nettype[-1])
 
-        # W scaling factor depends on the architecture.
-        # Here we have it pre-calculated
+        # Pre-calculated W scaling factor (depends on the architecture)
         if initializer == "binary":
             if csize == 6:
                 W = 8.344820201940066e-12

@@ -1,7 +1,7 @@
+import glob
 import pickle
 import sys
 
-import Utilities as utils
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -9,7 +9,6 @@ np.set_printoptions(threshold=sys.maxsize)
 
 
 def makelistoffiles(mypath, pattern):
-    import glob
     netfiles = glob.glob(mypath + pattern)
 
     for i in range(len(netfiles)):
@@ -63,10 +62,7 @@ def MergeTrainLogs(mypath):
     return 0
 
 
-def PlotAccuracy():
-    mypath = "Outputs/FreePruning/LeNet/P1_0.5/mask_relu_heconstant_LR0.001/"
-    saveas = mypath + "Accuracy"
-
+def PlotAccuracy(mypath):
     fig, axes = plt.subplots(2, 1, figsize=(8, 8), dpi=100)
     AxAccuracy = axes[0]
     AxSparsity = axes[1]
@@ -88,7 +84,6 @@ def PlotAccuracy():
     AxSparsity.fill_between(np.arange(wj.shape[0]), 1 - np.min(wj, axis=1) / scale, 1 - np.max(wj, axis=1) / scale, facecolor="black", alpha=0.1)
 
     AxAccuracy.grid(True)
-
     AxSparsity.grid(True)
     AxSparsity.set_xlabel("Epochs", fontsize=20)
     AxAccuracy.set_ylabel("Test Accuracy", fontsize=18)
@@ -96,29 +91,18 @@ def PlotAccuracy():
 
     fig.tight_layout(pad=1)
 
-    if saveas is not None:
-        fig.savefig(saveas + ".pdf")
-        fig.savefig(saveas + ".png")
-        print("figures saved in", saveas)
+    fig.savefig(mypath + "Accuracy_Sparsity.pdf")
+    fig.savefig(mypath + "Accuracy_Sparsity.png")
+    print("Figures saved in", mypath)
 
     plt.show()
 
     return 0
 
 
-def MergeData():
-    Outputs = [
-        "Outputs/FreePruning/LeNet/P1_0.5/mask_relu_heconstant_LR0.001/"
-    ]
-
-    for path in Outputs:
-        MergeTrainLogs(path)
-    return 0
-
-
 def main():
-    MergeData()
-    PlotAccuracy()
+    MergeTrainLogs("Outputs/FreePruning/LeNet/P1_0.5/mask_relu_heconstant_LR0.001/")
+    PlotAccuracy("Outputs/FreePruning/LeNet/P1_0.5/mask_relu_heconstant_LR0.001/")
 
     return 0
 
