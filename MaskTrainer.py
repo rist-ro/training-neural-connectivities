@@ -29,25 +29,12 @@ parser.add_argument('--activation', type=str, default='relu', choices=["relu", "
 parser.add_argument('--masktype', type=str, default='mask', choices=["mask", "mask_rs", "flip"])
 parser.add_argument('--batchsize', type=int, default=25)
 parser.add_argument('--maxepochs', type=int, default=100)
-parser.add_argument('--seed', '-s', type=int, default=0)
+parser.add_argument('--seed', '-s', type=int, default=None)
 parser.add_argument('--p1', type=float, default=0.5)
 parser.add_argument('--lr', type=float, default=1e-3)
 parser.add_argument('--outputpath', type=str, default="Outputs")
 
 args = parser.parse_args()
-
-
-def SaveResults(mypath, Logs, masks, runName):
-    file = open(mypath + "TrainLogs" + runName + ".pkl", "wb")
-    pickle.dump(Logs, file)
-    file.close()
-
-    # save masks used fo the run
-    file = open(mypath + "Masks" + runName + ".pkl", "wb")
-    pickle.dump(masks, file)
-    file.close()
-
-    return 0
 
 
 def getmasks(net):
@@ -128,7 +115,7 @@ def NetworkTrainer(network, data, mypath, myseed, batchsize, maxepochs):
     # assign a unique run ID for the run
     RunID = uuid.uuid4().hex
 
-    file = open(mypath + "NetworkWeights" + "_ID" + RunID[-7:] + "_SD" + str(myseed) + ".pkl", "wb")
+    file = open(mypath + "Weights_ID" + RunID[-7:] + ".pkl", "wb")
     pickle.dump(W, file)
     file.close()
 
@@ -162,17 +149,12 @@ def NetworkTrainer(network, data, mypath, myseed, batchsize, maxepochs):
             "remainingWeights": RemainingWeights,
             "remainingWeightsPerLayer": RemainingWeightsPerLayer}
 
+    runName = "_ID" + RunID[-7:]
+
     while epoch < maxepochs:
         start_time = time.time()
 
         print("\nepoch {}/{}".format(epoch + 1, maxepochs))
-
-        runName = "_ID" + RunID[-7:] + "_Wj" + str(remaining)
-        runName += "_SD" + str(myseed)
-        runName += '_PP{:.8f}'.format(remaining / total)
-        runName += '_PS' + str(epoch)
-
-        SaveResults(mypath, Logs, getmasks(network), runName)
 
         loss, metric = network.metrics_names
 
@@ -216,6 +198,14 @@ def NetworkTrainer(network, data, mypath, myseed, batchsize, maxepochs):
         print("Execution time: {:.3f} seconds".format(end_time - start_time))
         print("=============================================================")
 
+    file = open(mypath + "Masks" + runName + ".pkl", "wb")
+    pickle.dump(getmasks(network), file)
+    file.close()
+
+    file = open(mypath + "TrainLogs" + runName + ".pkl", "wb")
+    pickle.dump(Logs, file)
+    file.close()
+
     return 0
 
 
@@ -239,10 +229,10 @@ def PrepareConvolutional(csize, data, myseed, initializer, activation, masktype,
 def PrepareConv6(data, myseed, initializer, activation, masktype, trainW, trainM, p1, alpha):
     in_shape = data[0][0].shape
 
-    k = 3
-    cnn_arch = [[k, k, 3, 64], [k, k, 64, 64], [],
-                [k, k, 64, 128], [k, k, 128, 128], [],
-                [k, k, 128, 256], [k, k, 256, 256], []]
+    kernelsize = 3
+    cnn_arch = [[kernelsize, kernelsize, 3, 64], [kernelsize, kernelsize, 64, 64], [],
+                [kernelsize, kernelsize, 64, 128], [kernelsize, kernelsize, 128, 128], [],
+                [kernelsize, kernelsize, 128, 256], [kernelsize, kernelsize, 256, 256], []]
 
     dense_arch = [256, 256, data[-1]]
     network = Networks.makeMaskedCNN(in_shape, cnn_arch, dense_arch, activation, myseed, initializer, masktype, trainW, trainM, p1, alpha)
@@ -253,9 +243,9 @@ def PrepareConv6(data, myseed, initializer, activation, masktype, trainW, trainM
 def PrepareConv4(data, myseed, initializer, activation, masktype, trainW, trainM, p1, alpha):
     in_shape = data[0][0].shape
 
-    k = 3
-    cnn_arch = [[k, k, 3, 64], [k, k, 64, 64], [],
-                [k, k, 64, 128], [k, k, 128, 128], []]
+    kernelsize = 3
+    cnn_arch = [[kernelsize, kernelsize, 3, 64], [kernelsize, kernelsize, 64, 64], [],
+                [kernelsize, kernelsize, 64, 128], [kernelsize, kernelsize, 128, 128], []]
 
     dense_arch = [256, 256, data[-1]]
     network = Networks.makeMaskedCNN(in_shape, cnn_arch, dense_arch, activation, myseed, initializer, masktype, trainW, trainM, p1, alpha)
@@ -266,8 +256,8 @@ def PrepareConv4(data, myseed, initializer, activation, masktype, trainW, trainM
 def PrepareConv2(data, myseed, initializer, activation, masktype, trainW, trainM, p1, alpha):
     in_shape = data[0][0].shape
 
-    k = 3
-    cnn_arch = [[k, k, 3, 64], [k, k, 64, 64], []]
+    kernelsize = 3
+    cnn_arch = [[kernelsize, kernelsize, 3, 64], [kernelsize, kernelsize, 64, 64], []]
     dense_arch = [256, 256, data[-1]]
     network = Networks.makeMaskedCNN(in_shape, cnn_arch, dense_arch, activation, myseed, initializer, masktype, trainW, trainM, p1, alpha)
 
@@ -275,12 +265,6 @@ def PrepareConv2(data, myseed, initializer, activation, masktype, trainW, trainM
 
 
 def main(args):
-    # Available names for training types and other params
-    TrainingTypes = ["Baseline", "FreePruning", "MinPruning", "SignFlipping", "MinFlipping"]
-    Initializers = ["heconstant", "he", "glorot", "binary"]
-    Activations = ["relu", "swish", "sigmoid", "elu", "selu"]
-    Masktypes = ["mask", "mask_rs", "flip"]
-
     ParamTrainingTypes = {
         "Baseline": [(True, False), 0],
         "FreePruning": [(False, True), 0],
@@ -294,7 +278,7 @@ def main(args):
     lr = args.lr
     W = 1
     batchsize = args.batchsize
-    maxepochs = args.maxepochs
+    maxepochs = 5  # args.maxepochs
     trainingtype = args.traintype
     initializer = args.initializer
     activation = args.activation

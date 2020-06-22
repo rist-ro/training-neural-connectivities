@@ -14,14 +14,11 @@ maxval = 0.1
 
 class MaskedConv2D(Layer):
     def __init__(self, ksize, filters, activation, seed, initializer, stride, masktype, trainweights, trainmask, p1, alpha, **kwargs):
-        self.filters = filters
 
-        # used for weight initialization
+        self.filters = filters
         self.seed = seed
         self.stride = 1
-
         self.p1 = p1
-
         self.alpha = alpha
 
         if stride is not None:
@@ -40,11 +37,8 @@ class MaskedConv2D(Layer):
 
         self.trainW = trainweights
         self.trainM = trainmask
-
-        # convolutional kernel size
         self.kernelsize = ksize
 
-        # used for activation
         self.activation = activation
 
         super(MaskedConv2D, self).__init__(**kwargs)
@@ -122,13 +116,9 @@ class MaskedDense(Layer):
 
     def __init__(self, output_dim, activation, seed, initializer, masktype, trainweights, trainmask, p1, alpha, **kwargs):
         self.output_dim = output_dim
-
-        # used for weight initialization
         self.seed = seed
         self.p1 = p1
-
         self.alpha = alpha
-
         self.initializer = initializer
 
         if masktype == "flip":
@@ -142,8 +132,6 @@ class MaskedDense(Layer):
 
         self.trainW = trainweights
         self.trainM = trainmask
-
-        # used for activation
         self.activation = activation
 
         super(MaskedDense, self).__init__(**kwargs)
