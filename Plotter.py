@@ -115,8 +115,6 @@ def MergeData():
         MergeTrainLogs(path)
     return 0
 
-    return 0
-
 
 def main():
     MergeData()
