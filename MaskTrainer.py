@@ -75,6 +75,17 @@ def getcountsperlayer(net):
 
         # print("Layer", l, "counts:", np.asarray(counts[-1]) / m.size, counts[-1])
 
+    # calculate the total amount of negative, zero and positive masks/weights
+
+    # print("- masks    = {:.5f}".format(sumall[0] / (np.sum(sumall[:3]))))
+    # print("0 masks    = {:.5f}".format(sumall[1] / (np.sum(sumall[:3]))))
+    # print("+ masks    = {:.5f}".format(sumall[2] / (np.sum(sumall[:3]))))
+    # print("- weights  = {:.5f}".format(sumall[3] / (np.sum(sumall[3:]))))
+    # print("0 weights  = {:.5f}".format(sumall[4] / (np.sum(sumall[3:]))))
+    # print("+ weights  = {:.5f}".format(sumall[5] / (np.sum(sumall[3:]))))
+
+    # print("percent [-1, 0, +1] masks:  [{:.5f}, {:.5f}, {:.5f}]".format(sumall[0] / (np.sum(sumall[:3]))))
+
     return counts
 
 
@@ -170,23 +181,24 @@ def NetworkTrainer(network, data, mypath, myseed, batchsize, maxepochs):
         TestLoss = np.append(TestLoss, TestL0)
         TestAccuracy = np.append(TestAccuracy, TestA0)
 
-        print("batchsize  =", batchsize)
-        print("trn loss   = {:.5f}".format(TrainLoss[-1]))
-        print("val loss   = {:.5f}".format(ValLoss[-1]))
-        print("tst loss   = {:.5f}".format(TestLoss[-1]))
-        print("trn {}    = {:.5f}".format(metric, TrainAccuracy[-1]))
-        print("val {}    = {:.5f}".format(metric, ValAccuracy[-1]))
-        print("tst {}    = {:.5f}".format(metric, TestAccuracy[-1]))
         remaining, total = getcountstotal(network)
         end_time = time.time()
 
         RemainingWeights = np.append(RemainingWeights, remaining)
         RemainingWeightsPerLayer.append(getcountsperlayer(network))
+        sumall = np.sum(np.asarray(RemainingWeightsPerLayer[-1]), axis=0)
 
-        epoch += 1
+        nm, zm, pm = sumall[:3] / np.sum(sumall[:3])
+        nw, zw, pw = sumall[3:] / np.sum(sumall[3:])
 
+        print("Loss    - train, val, test:          {:.5f}, {:.5f}, {:.5f}".format(TrainLoss[-1], ValLoss[-1], TestLoss[-1]))
+        print("Acc     - train, val, test:          {:.5f}, {:.5f}, {:.5f}".format(TrainAccuracy[-1], ValAccuracy[-1], TestAccuracy[-1]))
+        print("Masks   - negative, zero, positive:  {:.5f}, {:.5f}, {:.5f}".format(nm, zm, pm))
+        print("Weights - negative, zero, positive:  {:.5f}, {:.5f}, {:.5f}".format(nw, zw, pw))
         print("Execution time: {:.3f} seconds".format(end_time - start_time))
         print("=============================================================")
+
+        epoch += 1
 
     Logs = {"trainLoss": TrainLoss,
             "testLoss": TestLoss,
