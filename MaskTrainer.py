@@ -104,7 +104,7 @@ def getcountstotal(net):
     return nz_sum, total_sum
 
 
-def NetworkTrainer(network, data, mypath, myseed, batchsize, maxepochs):
+def NetworkTrainer(network, data, mypath, batchsize, maxepochs):
     if not os.path.exists(mypath):
         os.makedirs(mypath)
         print("data will be saved at", mypath)
@@ -332,7 +332,7 @@ def main(args):
     outputpath += "/" + masktype + "_" + activation + "_" + initializer + "_LR" + str(lr) + "/"
     network.compile(loss='categorical_crossentropy', optimizer=tf.keras.optimizers.Adam(lr=lr), metrics=['accuracy'])
     network.summary()
-    NetworkTrainer(network, data, outputpath, myseed, batchsize, maxepochs)
+    NetworkTrainer(network, data, outputpath, batchsize, maxepochs)
     kb.clear_session()
 
 
