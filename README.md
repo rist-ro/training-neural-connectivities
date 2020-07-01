@@ -1,7 +1,7 @@
 # Training highly effective connectivities within neural networks with randomly initialized, fixed weights
 
 
-This repository contains the code for the experiments from this ["paper"](https://www.google.com/)
+This repository contains the code for the experiments from this ["paper"](https://arxiv.org/abs/2006.16627)
 
 ### Requirements
 - [numpy](https://numpy.org/)
