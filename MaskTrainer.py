@@ -73,19 +73,6 @@ def getcountsperlayer(net):
 
         counts.append([NegativeMasks, ZeroMasks, PositiveMasks, NegativeMW, ZeroMW, PositiveMW])
 
-        # print("Layer", l, "counts:", np.asarray(counts[-1]) / m.size, counts[-1])
-
-    # calculate the total amount of negative, zero and positive masks/weights
-
-    # print("- masks    = {:.5f}".format(sumall[0] / (np.sum(sumall[:3]))))
-    # print("0 masks    = {:.5f}".format(sumall[1] / (np.sum(sumall[:3]))))
-    # print("+ masks    = {:.5f}".format(sumall[2] / (np.sum(sumall[:3]))))
-    # print("- weights  = {:.5f}".format(sumall[3] / (np.sum(sumall[3:]))))
-    # print("0 weights  = {:.5f}".format(sumall[4] / (np.sum(sumall[3:]))))
-    # print("+ weights  = {:.5f}".format(sumall[5] / (np.sum(sumall[3:]))))
-
-    # print("percent [-1, 0, +1] masks:  [{:.5f}, {:.5f}, {:.5f}]".format(sumall[0] / (np.sum(sumall[:3]))))
-
     return counts
 
 
@@ -150,15 +137,6 @@ def NetworkTrainer(network, data, mypath, batchsize, maxepochs):
 
     RemainingWeights = np.asarray([remaining])
     RemainingWeightsPerLayer = [getcountsperlayer(network)]
-
-    # Logs = {"trainLoss": TrainLoss,
-    #         "testLoss": TestLoss,
-    #         "valLoss": ValLoss,
-    #         "trainAccuracy": TrainAccuracy,
-    #         "testAccuracy": TestAccuracy,
-    #         "valAccuracy": ValAccuracy,
-    #         "remainingWeights": RemainingWeights,
-    #         "remainingWeightsPerLayer": RemainingWeightsPerLayer}
 
     runName = "_ID" + RunID[-7:]
 
