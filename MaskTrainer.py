@@ -25,7 +25,7 @@ tf.compat.v1.keras.backend.set_session(get_session())
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--nettype', type=str, default='LeNet', choices=["LeNet", "Conv2", "Conv4", "Conv6", "ResNet"])
-parser.add_argument('--traintype', type=str, default='FreePruning', choices=["Baseline", "FreePruning", "MinPruning", "FreeFlipping", "MinFlipping", "MaxPruning"])
+parser.add_argument('--traintype', type=str, default='FreePruning', choices=["Baseline", "FreePruning", "MinPruning", "FreeFlipping", "MinFlipping"])
 parser.add_argument('--initializer', type=str, default='he', choices=["glorot", "he", "heconstant", "binary"])
 parser.add_argument('--activation', type=str, default='relu', choices=["relu", "swish", "sigmoid", "elu", "selu"])
 parser.add_argument('--masktype', type=str, default='mask', choices=["mask", "mask_rs", "flip"])
@@ -447,7 +447,6 @@ def main(args):
         "Baseline": [(True, False), 0],
         "FreePruning": [(False, True), 0],
         "MinPruning": [(False, True), -1],
-        "MaxPruning": [(True, True), 1],
         "FreeFlipping": [(False, True), 0],
         "MinFlipping": [(False, True), -1]
     }
