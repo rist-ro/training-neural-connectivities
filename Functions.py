@@ -31,6 +31,9 @@ def binary(p1, myseed):
 
 
 def activate(x, activationtype):
+    if activationtype is None:
+        return x
+
     if 'relu' in activationtype:
         return tf.keras.activations.relu(x)
 
@@ -49,8 +52,7 @@ def activate(x, activationtype):
     if "selu" in activationtype:
         return tf.keras.activations.selu(x)
 
-    if activationtype is None:
-        return x
+
 
     return x
 

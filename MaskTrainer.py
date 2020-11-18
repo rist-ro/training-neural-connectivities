@@ -9,6 +9,8 @@ import numpy as np
 import tensorflow as tf
 from tensorflow.keras import backend as kb
 import tensorflow.keras, time, uuid, pickle, argparse, Networks, utils
+from tensorflow.keras.preprocessing.image import ImageDataGenerator
+import ResNetBuilder
 
 print("TF version:        ", tf.__version__)
 print("TF.keras version:  ", tensorflow.keras.__version__)
@@ -22,13 +24,13 @@ def get_session(gpu_fraction=0.80):
 tf.compat.v1.keras.backend.set_session(get_session())
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--nettype', type=str, default='LeNet', choices=["LeNet", "Conv2", "Conv4", "Conv6"])
-parser.add_argument('--traintype', type=str, default='FreePruning', choices=["Baseline", "FreePruning", "MinPruning", "FreeFlipping", "MinFlipping"])
-parser.add_argument('--initializer', type=str, default='heconstant', choices=["glorot", "he", "heconstant", "binary"])
+parser.add_argument('--nettype', type=str, default='LeNet', choices=["LeNet", "Conv2", "Conv4", "Conv6", "ResNet"])
+parser.add_argument('--traintype', type=str, default='FreePruning', choices=["Baseline", "FreePruning", "MinPruning", "FreeFlipping", "MinFlipping", "MaxPruning"])
+parser.add_argument('--initializer', type=str, default='he', choices=["glorot", "he", "heconstant", "binary"])
 parser.add_argument('--activation', type=str, default='relu', choices=["relu", "swish", "sigmoid", "elu", "selu"])
 parser.add_argument('--masktype', type=str, default='mask', choices=["mask", "mask_rs", "flip"])
 parser.add_argument('--batchsize', type=int, default=25)
-parser.add_argument('--maxepochs', type=int, default=100)
+parser.add_argument('--maxepochs', type=int, default=20)
 parser.add_argument('--seed', type=int, default=0)
 parser.add_argument('--p1', type=float, default=0.5)
 parser.add_argument('--lr', type=float, default=1e-3)
@@ -89,6 +91,32 @@ def getcountstotal(net):
         total_sum += total
 
     return nz_sum, total_sum
+
+
+def getpercentages(net):
+    nz_sum = 0
+    total_sum = 0
+    mask_perlayer = []
+
+    for l in range(1, len(net.layers)):
+        # if len(net.layers[l].get_weights()) == 0:
+        if isinstance(net.layers[l].get_weights(), list):
+            continue
+
+        # print("counter\n", net.layers[l].get_counter())
+        # print("a=", net.layers[l].get_a())
+        nz, total = net.layers[l].get_pruneamount()
+        nz_sum += nz
+        total_sum += total
+        mask_perlayer.append([nz, total])
+        # print("Layer {} sparsity: {:.8f}".format(l, fraction))
+
+    # print("Network sparsity: {:.8f}, nonzero {:d}, total {:d} ".format(nz_sum / total_sum, nz_sum, total_sum))
+    print("Network sparsity: {:.8f}".format(nz_sum / total_sum))
+
+    # print("nonzero {:d}, total {:d}, sparsity {:.8f}".format(nz_sum, total_sum, nz_sum / total_sum))
+
+    return mask_perlayer, nz_sum, total_sum
 
 
 def NetworkTrainer(network, data, mypath, batchsize, maxepochs):
@@ -200,6 +228,165 @@ def NetworkTrainer(network, data, mypath, batchsize, maxepochs):
     return 0
 
 
+def ResNetTrainer(network, data, mypath, batchsize, maxepochs):
+    datagen = ImageDataGenerator(
+        # set input mean to 0 over the dataset
+        featurewise_center=False,
+        # set each sample mean to 0
+        samplewise_center=False,
+        # divide inputs by std of dataset
+        featurewise_std_normalization=False,
+        # divide each input by its std
+        samplewise_std_normalization=False,
+        # apply ZCA whitening
+        zca_whitening=False,
+        # epsilon for ZCA whitening
+        zca_epsilon=1e-06,
+        # randomly rotate images in the range (deg 0 to 180)
+        rotation_range=0,
+        # randomly shift images horizontally
+        width_shift_range=0.1,
+        # randomly shift images vertically
+        height_shift_range=0.1,
+        # set range for random shear
+        shear_range=0.,
+        # set range for random zoom
+        zoom_range=0.,
+        # set range for random channel shifts
+        channel_shift_range=0.,
+        # set mode for filling points outside the input boundaries
+        fill_mode='nearest',
+        # value used for fill_mode = "constant"
+        cval=0.,
+        # randomly flip images
+        horizontal_flip=True,
+        # randomly flip images
+        vertical_flip=False,
+        # set rescaling factor (applied before any other transformation)
+        rescale=None,
+        # set function that will be applied on each input
+        preprocessing_function=None,
+        # image data format, either "channels_first" or "channels_last"
+        data_format=None,
+        # fraction of images reserved for validation (strictly between 0 and 1)
+        validation_split=0.0)
+
+    # Compute quantities required for featurewise normalization
+    # (std, mean, and principal components if ZCA whitening is applied).
+    Xtrain, Ytrain, Xval, Yval, Xtest, Ytest, nclasses = data
+    datagen.fit(Xtrain)
+
+    epoch = 0
+
+    print("\nEvaluate network with no training:")
+    TrainL0, TrainA0 = network.evaluate(Xtrain, Ytrain, batch_size=200, verbose=2)
+    ValL0, ValA0 = network.evaluate(Xval, Yval, batch_size=200, verbose=2)
+    TestL0, TestA0 = network.evaluate(Xtest, Ytest, batch_size=200, verbose=2)
+
+    TrainLoss = np.asarray([TrainL0])
+    TrainAccuracy = np.asarray([TrainA0])
+
+    TestLoss = np.asarray([TestL0])
+    TestAccuracy = np.asarray([TestA0])
+
+    ValLoss = np.asarray([ValL0])
+    ValAccuracy = np.asarray([ValA0])
+
+    mask_perlayer, remaining, total = getpercentages(network)
+
+    RemainingWeights = np.asarray([remaining])
+
+    maxtrainacc = 0
+    maxvalacc = 0
+    maxtestacc = 0
+
+    lr = 1e-3
+    while epoch < maxepochs:
+        start_time = time.time()
+        loss, metric = network.metrics_names
+
+        if epoch == 80:
+            lr = 1e-4
+            kb.set_value(network.optimizer.lr, lr)
+
+        if epoch == 120:
+            lr = 1e-5
+            kb.set_value(network.optimizer.lr, lr)
+
+        if epoch == 160:
+            lr = 1e-6
+            kb.set_value(network.optimizer.lr, lr)
+
+        print('Standard learning rate: ', lr)
+        fit_history = network.fit_generator(datagen.flow(Xtrain, Ytrain, batch_size=batchsize), validation_data=(Xtest, Ytest), epochs=1, verbose=1, workers=1, shuffle=True)
+
+        TrainLoss = np.append(TrainLoss, fit_history.history[loss])
+        ValLoss = np.append(ValLoss, fit_history.history['val_loss'])
+
+        TrainAccuracy = np.append(TrainAccuracy, fit_history.history[metric])
+        ValAccuracy = np.append(ValAccuracy, fit_history.history['val_' + metric])
+
+        maxtrainacc = max(maxtrainacc, TrainAccuracy[-1])
+        maxtestacc = max(maxtestacc, ValAccuracy[-1])
+        maxvalacc = max(maxvalacc, ValAccuracy[-1])
+
+        print("\nepoch {}/{}".format(epoch + 1, maxepochs))
+        print("batchsize  =", batchsize)
+        print("trn loss   = {:.7f}".format(TrainLoss[-1]))
+        print("val loss   = {:.7f}".format(ValLoss[-1]))
+        print("tst loss   = {:.7f}".format(TestLoss[-1]))
+        print("trn {}    = {:.7f}, best {:.7f}".format(metric, TrainAccuracy[-1], maxtrainacc))
+        print("val {}    = {:.7f}, best {:.7f}".format(metric, ValAccuracy[-1], maxvalacc))
+        print("tst {}    = {:.7f}, best {:.7f}".format(metric, ValAccuracy[-1], maxtestacc))
+        mask_perlayer, remaining, total = getpercentages(network)
+
+        RemainingWeights = np.append(RemainingWeights, remaining)
+
+        epoch += 1
+        print("Output:", mypath)
+        Logs = {"trainLoss": TrainLoss,
+                "testLoss": ValLoss,
+                "valLoss": ValLoss,
+                "trainAccuracy": TrainAccuracy,
+                "testAccuracy": ValAccuracy,
+                "valAccuracy": ValAccuracy,
+                "remainingWeights": RemainingWeights
+                }
+
+        file = open(mypath + "TrainLogs.pkl", "wb")
+        pickle.dump(Logs, file)
+        file.close()
+        print("Execution time: {:.3f} seconds".format(time.time() - start_time))
+        print("=" * (len(mypath) + 8))
+
+    file = open(mypath + "Masks.pkl", "wb")
+    pickle.dump(getmasks(network), file)
+    file.close()
+
+    W = []
+    P = 1
+    for l in range(1, len(network.layers)):
+        w = network.layers[l].get_weights()
+        # m = network.layers[l].get_mask()
+        if isinstance(w, list):
+            W.append([])
+            continue
+
+        # print(w.shape)
+        print("maxw=", np.max(w), "minw=", np.min(w))
+        # print("maxm=", np.max(m), "minm=", np.min(m))
+        # print(np.max(m), np.min(m))
+        P *= np.max(w)
+        W.append(w)
+        # print(w)
+
+    print("product of all layer's weights:", P)
+    file = open(mypath + "Weights.pkl", "wb")
+    pickle.dump(W, file)
+    file.close()
+    return Logs
+
+
 def PrepareMaskedMLP(data, myseed, initializer, activation, masktype, trainW, trainM, p1, alpha):
     dense_arch = [data[0].shape[-1], 300, 100, data[-1]]
     network = Networks.makeMaskedMLP(dense_arch, activation, myseed, initializer, masktype, trainW, trainM, p1, alpha)
@@ -260,8 +447,9 @@ def main(args):
         "Baseline": [(True, False), 0],
         "FreePruning": [(False, True), 0],
         "MinPruning": [(False, True), -1],
+        "MaxPruning": [(True, True), 1],
         "FreeFlipping": [(False, True), 0],
-        "MinFlipping": [(False, True), -1],
+        "MinFlipping": [(False, True), -1]
     }
 
     myseed = None if args.seed == 0 else args.seed
@@ -297,6 +485,41 @@ def main(args):
         data = utils.SetMyData("CIFAR", W)
         outputpath += "/Conv" + str(csize)
         network = PrepareConvolutional(csize, data, myseed, initializer, activation, masktype, trainWeights, trainMasks, p1, alpha)
+
+    if "ResNet" in args.nettype:
+        data = utils.SetMyData("CIFAR")
+        version = 1
+        n = 3
+
+        config = {
+            "name": "ResNet",
+            "data": "CIFAR10",
+            "arch": [],
+            "seed": myseed,
+            "initializer": initializer,
+            "activation": "relu",
+            "masktype": masktype,
+            "trainW": trainWeights,
+            "trainM": trainMasks,
+            "p1": args.p1,
+            "abg": alpha
+        }
+
+        outputpath += "/ResNet_V" + str(version) + "_n" + str(n)
+        outputpath += "/P1_" + str(p1)
+        outputpath += "/" + masktype + "_" + activation + "_" + initializer + "_LR" + str(lr) + "/"
+
+        network = ResNetBuilder.MakeResNet(data[0].shape[1:], version, n, config)
+        network.compile(loss='categorical_crossentropy', optimizer=tf.keras.optimizers.Adam(lr=0.001), metrics=['accuracy'])
+        network.summary()
+
+        if not os.path.exists(outputpath):
+            os.makedirs(outputpath)
+            print("data will be saved at", outputpath)
+
+        ResNetTrainer(network, data, outputpath, batchsize, maxepochs)
+        kb.clear_session()
+        return
 
     if args.nettype == "LeNet":
         if initializer == "binary":
