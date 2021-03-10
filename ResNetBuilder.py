@@ -12,7 +12,6 @@ from tensorflow.keras.models import Model
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.preprocessing.image import ImageDataGenerator
 from Layers import MaskedConv2D, MaskedDense
-from MyBiasedLayers import MaskedConv2DBiased, MaskedDenseBias
 import tensorflow
 
 print("TF version:        ", tensorflow.__version__)
