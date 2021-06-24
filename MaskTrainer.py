@@ -4,23 +4,30 @@ import argparse
 nettype_choice = ["LeNet", "Conv2", "Conv4", "Conv6", "ResNet"]
 traintype_choice = ["Baseline", "FreePruning", "MinPruning", "FreeFlipping", "MinFlipping"]
 initializer_choice = ["glorot", "he", "heconstant"]  # , "binary"]
-activation_choice = ["relu"]#, "swish", "sigmoid", "elu", "selu"]
-masktype_choice = ["mask", "flip", "mask_rs"]
+activation_choice = ["relu"]  # , "swish", "sigmoid", "elu", "selu"]
+masktype_choice = ["mask", "flip"]  # , "mask_rs"]
+
+learning_rates = {"LeNet": 0.001,
+                  "Conv2Baseline": 0.0002, "Conv2FreePruning": 0.003, "Conv2MinPruning": 0.003, "Conv2FreeFlipping": 0.0005, "Conv2MinFlipping": 0.0005,
+                  "Conv4Baseline": 0.0003, "Conv4FreePruning": 0.003, "Conv4MinPruning": 0.003, "Conv4FreeFlipping": 0.0005, "Conv4MinFlipping": 0.0005,
+                  "Conv6Baseline": 0.0003, "Conv6FreePruning": 0.003, "Conv6MinPruning": 0.003, "Conv6FreeFlipping": 0.0005, "Conv6MinFlipping": 0.0005,
+                  }
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--nettype', type=str, default='ResNet', choices=nettype_choice)
+parser.add_argument('--nettype', type=str, default='LeNet', choices=nettype_choice)
 parser.add_argument('--traintype', type=str, default='FreePruning', choices=traintype_choice)
 parser.add_argument('--initializer', type=str, default='heconstant', choices=initializer_choice)
 parser.add_argument('--activation', type=str, default='relu', choices=activation_choice)
-parser.add_argument('--masktype', type=str, default='mask_rs', choices=masktype_choice)
+parser.add_argument('--masktype', type=str, default='mask', choices=masktype_choice)
 parser.add_argument('--batchsize', type=int, default=25)
 parser.add_argument('--maxepochs', type=int, default=100)
 parser.add_argument('--seed', type=int, default=0)
 parser.add_argument('--p1', type=float, default=0.5)
 parser.add_argument('--lr', type=float, default=1e-3)
-parser.add_argument('--nruns', type=int, default=30)
+parser.add_argument('--nruns', type=int, default=1)
 parser.add_argument('--gpu', type=int, default=0)
 parser.add_argument('--outputpath', type=str, default="Outputs")
+parser.add_argument('--mock', type=bool, default=False)
 args = parser.parse_args()
 
 # os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
@@ -42,6 +49,8 @@ def get_session(gpu_fraction=0.80):
 
 
 tf.compat.v1.keras.backend.set_session(get_session())
+
+saveWeightsAndMasks = False
 
 
 def getmasks(net):
@@ -199,21 +208,22 @@ def NetworkTrainer(network, data, mypath, batchsize, maxepochs):
             "neg_zero_pos_masks": NZPMasks
             }
 
-    file = open(mypath + "Masks.pkl", "wb")
-    pickle.dump(getmasks(network), file)
-    file.close()
+    if saveWeightsAndMasks:
+        file = open(mypath + "Masks.pkl", "wb")
+        pickle.dump(getmasks(network), file)
+        file.close()
 
-    W = []
-    for l in range(1, len(network.layers)):
-        w = network.layers[l].get_weights()
-        if isinstance(w, list):
-            W.append([])
-            continue
-        W.append(w)
+        W = []
+        for l in range(1, len(network.layers)):
+            w = network.layers[l].get_weights()
+            if isinstance(w, list):
+                W.append([])
+                continue
+            W.append(w)
 
-    file = open(mypath + "Weights.pkl", "wb")
-    pickle.dump(W, file)
-    file.close()
+        file = open(mypath + "Weights.pkl", "wb")
+        pickle.dump(W, file)
+        file.close()
 
     file = open(mypath + "TrainLogs.pkl", "wb")
     pickle.dump(Logs, file)
@@ -354,21 +364,22 @@ def ResNetTrainer(network, data, mypath, batchsize, maxepochs):
             "neg_zero_pos_masks": NZPMasks
             }
 
-    file = open(mypath + "Masks.pkl", "wb")
-    pickle.dump(getmasks(network), file)
-    file.close()
+    if saveWeightsAndMasks:
+        file = open(mypath + "Masks.pkl", "wb")
+        pickle.dump(getmasks(network), file)
+        file.close()
 
-    W = []
-    for l in range(1, len(network.layers)):
-        w = network.layers[l].get_weights()
-        if isinstance(w, list):
-            W.append([])
-            continue
-        W.append(w)
+        W = []
+        for l in range(1, len(network.layers)):
+            w = network.layers[l].get_weights()
+            if isinstance(w, list):
+                W.append([])
+                continue
+            W.append(w)
 
-    file = open(mypath + "Weights.pkl", "wb")
-    pickle.dump(W, file)
-    file.close()
+        file = open(mypath + "Weights.pkl", "wb")
+        pickle.dump(W, file)
+        file.close()
 
     file = open(mypath + "TrainLogs.pkl", "wb")
     pickle.dump(Logs, file)
@@ -457,116 +468,139 @@ def main(args):
     trainWeights, trainMasks = ParamTrainingTypes[trainingtype][0]
     alpha = ParamTrainingTypes[trainingtype][1]
 
-    for i in range(100):
-        nettype = np.random.choice(nettype_choice)
-        trainingtype=np.random.choice(traintype_choice)
-        trainingtype=np.random.choice(initializer_choice)
-        trainingtype=np.random.choice(activation_choice)
-        trainingtype=np.random.choice(masktype_choice)
+    # for i in range(100):
+    #     nettype = np.random.choice(nettype_choice)
+    #     trainingtype = np.random.choice(traintype_choice)
+    #     initializer = np.random.choice(initializer_choice)
+    #     activation = np.random.choice(activation_choice)
+    #     if "Flipping" in trainingtype:
+    #         masktype = "flip"
+    #
+    #     if "Pruning" in trainingtype:
+    #         masktype = "mask"
 
-    # return
+    set_manual = True
+    if set_manual:
+        nettype = "LeNet"
+        initializer = "glorot"
+        trainingtype = "MinPruning"
 
-    if nettype == "ResNet":
-        data = utils.SetMyData("CIFAR")
-        version = 1
-        n = 3
+        for nettype in nettype_choice:
+            for initializer in initializer_choice:
+                for trainingtype in traintype_choice:
 
-        config = {
-            "name": "ResNet",
-            "data": "CIFAR10",
-            "arch": [],
-            "seed": myseed,
-            "initializer": initializer,
-            "activation": activation,
-            "masktype": masktype,
-            "trainW": trainWeights,
-            "trainM": trainMasks,
-            "p1": p1,
-            "abg": alpha
-        }
+                    if "Flipping" in trainingtype:
+                        masktype = "flip"
 
-        for _ in range(experiment_repeats):
-            outputpath = args.outputpath
-            outputpath += "/ResNet"
-            outputpath += "/" + trainingtype
-            outputpath += "/P1_" + str(p1)
-            outputpath += "/" + masktype + "/" + activation + "/" + initializer + "/LR" + str(lr) + "/"
-            runID = uuid.uuid4().hex[-7:]
-            outputpath += runID + "/"
+                    if "Pruning" in trainingtype:
+                        masktype = "mask"
 
-            if not os.path.exists(outputpath):
-                os.makedirs(outputpath)
+                    if nettype == "ResNet":
+                        version = 1
+                        n = 3
 
-            maxepochs = 200
-            batchsize = 64
-            network = ResNetBuilder.MakeResNet(data[0].shape[1:], version, n, config)
-            network.compile(loss='categorical_crossentropy', optimizer=tf.keras.optimizers.Adam(lr=0.001), metrics=['accuracy'])
-            network.summary()
-            print("data will be saved at", outputpath)
-            ResNetTrainer(network, data, outputpath, batchsize, maxepochs)
-            kb.clear_session()
+                        config = {
+                            "name": "ResNet",
+                            "data": "CIFAR10",
+                            "arch": [],
+                            "seed": myseed,
+                            "initializer": initializer,
+                            "activation": activation,
+                            "masktype": masktype,
+                            "trainW": trainWeights,
+                            "trainM": trainMasks,
+                            "p1": p1,
+                            "abg": alpha
+                        }
 
-        return
+                        for _ in range(experiment_repeats):
+                            outputpath = args.outputpath
+                            outputpath += "/ResNet"
+                            outputpath += "/" + trainingtype
+                            outputpath += "/P1_" + str(p1)
+                            outputpath += "/" + masktype + "/" + activation + "/" + initializer + "/LR" + str(lr) + "/"
+                            runID = uuid.uuid4().hex[-7:]
+                            outputpath += runID + "/"
 
-    if nettype == "LeNet":
-        for _ in range(experiment_repeats):
-            if initializer == "binary":
-                W = 0.0005942073791483592
+                            print("data will be saved at", outputpath)
+                            if not args.mock:
+                                if not os.path.exists(outputpath):
+                                    os.makedirs(outputpath)
 
-            data = utils.SetMyData("MNIST", W)
-            outputpath = args.outputpath
-            outputpath += "/LeNet"
-            outputpath += "/" + trainingtype
-            outputpath += "/P1_" + str(p1)
-            outputpath += "/" + masktype + "/" + activation + "/" + initializer + "/LR" + str(lr) + "/"
-            runID = uuid.uuid4().hex[-7:]
-            outputpath += runID + "/"
+                                maxepochs = 200
+                                batchsize = 64
+                                data = utils.SetMyData("CIFAR")
+                                network = ResNetBuilder.MakeResNet(data[0].shape[1:], version, n, config)
+                                network.compile(loss='categorical_crossentropy', optimizer=tf.keras.optimizers.Adam(lr=0.001), metrics=['accuracy'])
+                                network.summary()
+                                ResNetTrainer(network, data, outputpath, batchsize, maxepochs)
+                                kb.clear_session()
 
-            if not os.path.exists(outputpath):
-                os.makedirs(outputpath)
+                    if nettype == "LeNet":
+                        batchsize = 25
+                        lr = learning_rates["LeNet"]
 
-            network = PrepareMaskedMLP(data, myseed, initializer, activation, masktype, trainWeights, trainMasks, p1, alpha)
-            network.compile(loss='categorical_crossentropy', optimizer=tf.keras.optimizers.Adam(lr=lr), metrics=['accuracy'])
-            network.summary()
-            print("data will be saved at", outputpath)
-            NetworkTrainer(network, data, outputpath, batchsize, maxepochs)
-            kb.clear_session()
+                        for _ in range(experiment_repeats):
+                            if initializer == "binary":
+                                W = 0.0005942073791483592
 
-        return
+                            outputpath = args.outputpath
+                            outputpath += "/LeNet"
+                            outputpath += "/" + trainingtype
+                            outputpath += "/P1_" + str(p1)
+                            outputpath += "/" + masktype + "/" + activation + "/" + initializer + "/LR" + str(lr) + "/"
+                            runID = uuid.uuid4().hex[-7:]
+                            outputpath += runID + "/"
 
-    if "Conv" in nettype:
-        for _ in range(experiment_repeats):
-            csize = int(nettype[-1])
+                            print("data will be saved at", outputpath)
 
-            # Pre-calculated W scaling factor (depends on the architecture)
-            if initializer == "binary":
-                if csize == 6:
-                    W = 8.344820201940066e-12
-                if csize == 4:
-                    W = 4.806616356300754e-09
-                if csize == 2:
-                    W = 1.384305440187043e-06
+                            if not args.mock:
+                                if not os.path.exists(outputpath):
+                                    os.makedirs(outputpath)
 
-            data = utils.SetMyData("CIFAR", W)
-            outputpath = args.outputpath
-            outputpath += "/Conv" + str(csize)
-            outputpath += "/" + trainingtype
-            outputpath += "/P1_" + str(p1)
-            outputpath += "/" + masktype + "/" + activation + "/" + initializer + "/LR" + str(lr) + "/"
-            runID = uuid.uuid4().hex[-7:]
-            outputpath += runID + "/"
+                                data = utils.SetMyData("MNIST", W)
+                                network = PrepareMaskedMLP(data, myseed, initializer, activation, masktype, trainWeights, trainMasks, p1, alpha)
+                                network.compile(loss='categorical_crossentropy', optimizer=tf.keras.optimizers.Adam(lr=lr), metrics=['accuracy'])
+                                network.summary()
+                                NetworkTrainer(network, data, outputpath, batchsize, maxepochs)
+                                kb.clear_session()
 
-            if not os.path.exists(outputpath):
-                os.makedirs(outputpath)
+                    if "Conv" in nettype:
+                        batchsize = 25
+                        lr = learning_rates[nettype + initializer]
 
-            network = PrepareConvolutional(csize, data, myseed, initializer, activation, masktype, trainWeights, trainMasks, p1, alpha)
-            network.compile(loss='categorical_crossentropy', optimizer=tf.keras.optimizers.Adam(lr=lr), metrics=['accuracy'])
-            network.summary()
-            print("data will be saved at", outputpath)
-            NetworkTrainer(network, data, outputpath, batchsize, maxepochs)
-            kb.clear_session()
+                        for _ in range(experiment_repeats):
+                            csize = int(nettype[-1])
+                            # Pre-calculated W scaling factor (depends on the architecture)
+                            if initializer == "binary":
+                                if csize == 6:
+                                    W = 8.344820201940066e-12
+                                if csize == 4:
+                                    W = 4.806616356300754e-09
+                                if csize == 2:
+                                    W = 1.384305440187043e-06
 
-        return
+                            outputpath = args.outputpath
+                            outputpath += "/Conv" + str(csize)
+                            outputpath += "/" + trainingtype
+                            outputpath += "/P1_" + str(p1)
+                            outputpath += "/" + masktype + "/" + activation + "/" + initializer + "/LR" + str(lr) + "/"
+                            runID = uuid.uuid4().hex[-7:]
+                            outputpath += runID + "/"
+
+                            print("data will be saved at", outputpath)
+
+                            if not args.mock:
+                                if not os.path.exists(outputpath):
+                                    os.makedirs(outputpath)
+
+                                data = utils.SetMyData("CIFAR", W)
+                                network = PrepareConvolutional(csize, data, myseed, initializer, activation, masktype, trainWeights, trainMasks, p1, alpha)
+                                network.compile(loss='categorical_crossentropy', optimizer=tf.keras.optimizers.Adam(lr=lr), metrics=['accuracy'])
+                                network.summary()
+                                NetworkTrainer(network, data, outputpath, batchsize, maxepochs)
+
+                                kb.clear_session()
 
 
 if __name__ == '__main__':

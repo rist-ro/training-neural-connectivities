@@ -170,11 +170,11 @@ def cifar10(ss=None):
     for i in range(0, len(ytest)):
         TestLabels[i, ytest[i]] = 1
 
-    print("Data set: CIFAR10 ")
-    print(" train data shape:  ", TrainInput.shape)
-    print(" train label shape: ", TrainLabels.shape)
-    print(" test data shape:   ", TestInput.shape)
-    print(" test label shape:  ", TestLabels.shape)
+    # print("Data set: CIFAR10 ")
+    # print(" train data shape:  ", TrainInput.shape)
+    # print(" train label shape: ", TrainLabels.shape)
+    # print(" test data shape:   ", TestInput.shape)
+    # print(" test label shape:  ", TestLabels.shape)
 
     Xtrain, Ytrain, Xtest, Ytest, nclasses = np.ascontiguousarray(TrainInput), np.ascontiguousarray(TrainLabels), np.ascontiguousarray(TestInput), np.ascontiguousarray(
         TestLabels), 10

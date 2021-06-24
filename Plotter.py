@@ -43,8 +43,8 @@ def PlotAccuracy(mypath):
         return
     # print(Logs)
 
-    AccCurve = {}
-    NZWCurves = {}
+    AccuracyCurve = {}
+    ChangedWeightsCurves = {}
 
     for l in Logs:
         fname = l.as_posix()
@@ -57,18 +57,28 @@ def PlotAccuracy(mypath):
         end = None
         testAccuracy = LogFile['testAccuracy'][start:end]
         total_weights = np.sum(np.asarray(LogFile['neg_zero_pos_masks'][start:end])[0])
-        nzw = 100 * np.asarray(LogFile['neg_zero_pos_masks'][start:end])[:, 1] / total_weights
+        # changed_weights = 100 * np.asarray(LogFile['neg_zero_pos_masks'][start:end])[:, 1] / total_weights
+        changed_weights = 100 * (total_weights - np.asarray(LogFile['neg_zero_pos_masks'][start:end])[:, 2]) / total_weights
+
+        # changed_weights = 100 * np.asarray(LogFile['neg_zero_pos_masks'][start:end])[:, 1] / total_weights
+
+        # allweights = np.asarray(LogFile['neg_zero_pos_masks'][start:end])[0, 2]
+
+        # print(allweights)
+        # print(nonpositive)
+
+        # print(np.asarray(LogFile['neg_zero_pos_masks'][start:end]))
 
         curvename = traintype + "_" + initializer
-        if curvename in AccCurve.keys():
-            AccCurve[curvename].append(testAccuracy)
+        if curvename in AccuracyCurve.keys():
+            AccuracyCurve[curvename].append(testAccuracy)
         else:
-            AccCurve[curvename] = [testAccuracy]
+            AccuracyCurve[curvename] = [testAccuracy]
 
-        if curvename in NZWCurves.keys():
-            NZWCurves[curvename].append(nzw)
+        if curvename in ChangedWeightsCurves.keys():
+            ChangedWeightsCurves[curvename].append(changed_weights)
         else:
-            NZWCurves[curvename] = [nzw]
+            ChangedWeightsCurves[curvename] = [changed_weights]
 
     patches = [[], [], []]
     labels = [[], [], []]
@@ -76,43 +86,46 @@ def PlotAccuracy(mypath):
     selection = None
     start = 0
     step = 10
-    widths = 3
-    epochs = len(AccCurve[list(AccCurve.keys())[0]][0])
-    selection = np.append([1, 3, 5], np.arange(10, epochs, step))
-    # selection = np.arange(start,epochs,1)
-    selection2 = np.append([1], np.arange(10, epochs, step))
-    # selection2 = np.arange(start,epochs,1)
-    widths = np.append([1, 1, 1], 5 * np.ones(1 + (epochs - 10) // step, dtype=np.int))
-    print(selection)
-    print(widths)
-    print(AccCurve)
-    for p in AccCurve.keys():
+    epochs = len(AccuracyCurve[list(AccuracyCurve.keys())[0]][0])
+    selection = np.append([0, 1, 3, 5], np.arange(10, epochs, step))
+    selection2 = np.append([0, 5], np.arange(10, epochs, step))
+    widths = np.append([1, 1, 1, 1], 5 * np.ones(1 + (epochs - 10) // step, dtype=np.int))
+    # widths=3
+
+    for p in reversed(list(AccuracyCurve.keys())):
         traintype = p.split('_')[0]
         initializer = p.split('_')[1]
+        # if traintype == "Baseline":
+        #     selection = np.append([7], np.arange(15, epochs, step))
+        #     widths = np.append([1], 3 * np.ones(1 + (epochs - 15) // step, dtype=np.int))
 
-        # epochs = len(AccCurve[p][0])
         # selection = np.arange(start, epochs, step)
         # selection = np.append([0,5],np.arange(10, epochs, step))
-        # print(AccCurve[p][0])
         print(selection)
-        # curves = np.asarray(AccCurve[p])
         # csel=curves[:,selection]
         # print(csel.shape)
 
-        violin_acc = np.asarray(AccCurve[p])[:, selection]
-        violin_nzw = np.asarray(NZWCurves[p])[:, selection]
+        violin_acc = np.asarray(AccuracyCurve[p])[:, selection]
+        violin_nzw = np.asarray(ChangedWeightsCurves[p])[:, selection]
 
-        testAccuracy_mean = np.mean(AccCurve[p], axis=0)[selection]
-        nzw_mean = np.mean(NZWCurves[p], axis=0)[selection]
+        testAccuracy_mean = np.mean(AccuracyCurve[p], axis=0)[selection]
+        nzw_mean = np.mean(ChangedWeightsCurves[p], axis=0)[selection]
 
         panel = Panels[initializer]
-        label = traintype + "_" + str(len(AccCurve[p]))
+        label = traintype + "_" + str(len(AccuracyCurve[p]))
 
-        p = axes[0][panel].violinplot(dataset=violin_acc, positions=selection, showmeans=True, showextrema=True, widths=widths)
-        color = p["bodies"][0].get_facecolor().flatten()
+        if traintype == "Baseline":
+            vp = axes[0][panel].violinplot(dataset=violin_acc, positions=selection, showmeans=True, showextrema=True, widths=widths)
+            # vp=axes[0][panel].scatter(selection, testAccuracy_mean, color=color, label=label, linewidth=3)
+            color = vp["bodies"][0].get_facecolor().flatten()
+            color='black'
+            # axes[0][panel].fill_between(selection, np.min(AccuracyCurve[p], axis=0)[selection], np.max(AccuracyCurve[p], axis=0)[selection], facecolor=color, alpha=0.1)
+            axes[0][panel].plot(selection, testAccuracy_mean, color='black', label=label, linewidth=3)
+        else:
+            vp = axes[0][panel].violinplot(dataset=violin_acc, positions=selection, showmeans=True, showextrema=True, widths=widths)
+            color = vp["bodies"][0].get_facecolor().flatten()
 
         patches[panel].append(mpatches.Patch(color=color))
-        # axes[0][panel].plot(selection, testAccuracy_mean, color=color, label=label)
 
         axes[1][panel].violinplot(dataset=violin_nzw, positions=selection, showmeans=True, showextrema=True, widths=widths)
         axes[1][panel].plot(selection, nzw_mean, color=color, label=label)
@@ -122,7 +135,7 @@ def PlotAccuracy(mypath):
         axes[1][panel].legend(patches[panel], labels[panel], ncol=2, fontsize=18)
 
     networktype = mypath.split('/')[1]
-    limits = {"LeNet": [(.945, .985), (-5, 105), (0.00, 0.5), (100 - 0.006, 100.0006)],
+    limits = {"LeNet": [(.95, .985), (-5, 105), (0.00, 0.5), (100 - 0.006, 100.0006)],
               "ResNet": [(.70, .91), (-5, 105), (-0.05, 1.05), (100 - 0.012, 100.0012)],
               "Conv2": [(.70, .91), (-5, 105), (-0.05, 1.05), (100 - 0.012, 100.0012)]
               }
@@ -149,6 +162,7 @@ def PlotAccuracy(mypath):
         # ax.legend(fontsize=18, ncol=2)
 
         ax.set_ylim(limits[networktype][1])
+        # ax.set_yticks(np.arange(0,101,10))
         ax.grid(True)
         ax.set_xticks(selection2)
         for tick in ax.yaxis.get_major_ticks():
