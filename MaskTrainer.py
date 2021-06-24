@@ -1,13 +1,19 @@
 import os
 import argparse
 
+nettype_choice = ["LeNet", "Conv2", "Conv4", "Conv6", "ResNet"]
+traintype_choice = ["Baseline", "FreePruning", "MinPruning", "FreeFlipping", "MinFlipping"]
+initializer_choice = ["glorot", "he", "heconstant"]  # , "binary"]
+activation_choice = ["relu"]#, "swish", "sigmoid", "elu", "selu"]
+masktype_choice = ["mask", "flip", "mask_rs"]
+
 parser = argparse.ArgumentParser()
-parser.add_argument('--nettype', type=str, default='ResNet', choices=["LeNet", "Conv2", "Conv4", "Conv6", "ResNet"])
-parser.add_argument('--traintype', type=str, default='FreePruning', choices=["Baseline", "FreePruning", "MinPruning", "FreeFlipping", "MinFlipping"])
-parser.add_argument('--initializer', type=str, default='heconstant', choices=["glorot", "he", "heconstant", "binary"])
-parser.add_argument('--activation', type=str, default='relu', choices=["relu", "swish", "sigmoid", "elu", "selu"])
-parser.add_argument('--masktype', type=str, default='mask', choices=["mask", "mask_rs", "flip"])
-parser.add_argument('--batchsize', type=int, default=125)
+parser.add_argument('--nettype', type=str, default='ResNet', choices=nettype_choice)
+parser.add_argument('--traintype', type=str, default='FreePruning', choices=traintype_choice)
+parser.add_argument('--initializer', type=str, default='heconstant', choices=initializer_choice)
+parser.add_argument('--activation', type=str, default='relu', choices=activation_choice)
+parser.add_argument('--masktype', type=str, default='mask_rs', choices=masktype_choice)
+parser.add_argument('--batchsize', type=int, default=25)
 parser.add_argument('--maxepochs', type=int, default=100)
 parser.add_argument('--seed', type=int, default=0)
 parser.add_argument('--p1', type=float, default=0.5)
@@ -144,9 +150,6 @@ def NetworkTrainer(network, data, mypath, batchsize, maxepochs):
     neg, zero, pos = utils.getNZPmasks(network)
     NZPMasks = [[neg, zero, pos]]
 
-    # print(NZPMasks)
-    # input()
-
     TrainLoss = np.asarray([TrainL0])
     TrainAccuracy = np.asarray([TrainA0])
 
@@ -155,13 +158,6 @@ def NetworkTrainer(network, data, mypath, batchsize, maxepochs):
 
     ValLoss = np.asarray([ValL0])
     ValAccuracy = np.asarray([ValA0])
-
-    # remaining, total = getcountstotal(network)
-
-    # RemainingWeights = np.asarray([remaining])
-    # RemainingWeightsPerLayer = [getcountsperlayer(network)]
-
-    # runName = "_ID" + RunID[-7:]
 
     while epoch < maxepochs:
         start_time = time.time()
@@ -182,16 +178,6 @@ def NetworkTrainer(network, data, mypath, batchsize, maxepochs):
         TestLoss = np.append(TestLoss, TestL0)
         TestAccuracy = np.append(TestAccuracy, TestA0)
 
-        # remaining, total = getcountstotal(network)
-        # end_time = time.time()
-
-        # RemainingWeights = np.append(RemainingWeights, remaining)
-        # RemainingWeightsPerLayer.append(getcountsperlayer(network))
-        # sumall = np.sum(np.asarray(RemainingWeightsPerLayer[-1]), axis=0)
-
-        # nm, zm, pm = sumall[:3] / np.sum(sumall[:3])
-        # nw, zw, pw = sumall[3:] / np.sum(sumall[3:])
-
         neg, zero, pos = utils.getNZPmasks(network)
         denom = (neg + zero + pos)
         NZPMasks.append([neg, zero, pos])
@@ -199,8 +185,6 @@ def NetworkTrainer(network, data, mypath, batchsize, maxepochs):
         print("Loss    - train, val, test:          {:.5f}, {:.5f}, {:.5f}".format(TrainLoss[-1], ValLoss[-1], TestLoss[-1]))
         print("Acc     - train, val, test:          {:.5f}, {:.5f}, {:.5f}".format(TrainAccuracy[-1], ValAccuracy[-1], TestAccuracy[-1]))
         print("neg: {}, zero: {}, pos: {} - {:.7f}, {:.7f}, {:.7f}".format(neg, zero, pos, neg / denom, zero / denom, pos / denom))
-        # print("Masks   - negative, zero, positive:  {:.5f}, {:.5f}, {:.5f}".format(nm, zm, pm))
-        # print("Weights - negative, zero, positive:  {:.5f}, {:.5f}, {:.5f}".format(nw, zw, pw))
         print("Execution time: {:.3f} seconds".format(time.time() - start_time))
         print("=============================================================")
 
@@ -215,21 +199,21 @@ def NetworkTrainer(network, data, mypath, batchsize, maxepochs):
             "neg_zero_pos_masks": NZPMasks
             }
 
-    # file = open(mypath + "Masks" + runName + ".pkl", "wb")
-    # pickle.dump(getmasks(network), file)
-    # file.close()
+    file = open(mypath + "Masks.pkl", "wb")
+    pickle.dump(getmasks(network), file)
+    file.close()
 
-    # W = []
-    # for l in range(1, len(network.layers)):
-    #     w = network.layers[l].get_weights()
-    #     if isinstance(w, list):
-    #         W.append([])
-    #         continue
-    #     W.append(w)
+    W = []
+    for l in range(1, len(network.layers)):
+        w = network.layers[l].get_weights()
+        if isinstance(w, list):
+            W.append([])
+            continue
+        W.append(w)
 
-    # file = open(mypath + "Weights" + str(epoch) + ".pkl", "wb")
-    # pickle.dump(W, file)
-    # file.close()
+    file = open(mypath + "Weights.pkl", "wb")
+    pickle.dump(W, file)
+    file.close()
 
     file = open(mypath + "TrainLogs.pkl", "wb")
     pickle.dump(Logs, file)
@@ -370,6 +354,22 @@ def ResNetTrainer(network, data, mypath, batchsize, maxepochs):
             "neg_zero_pos_masks": NZPMasks
             }
 
+    file = open(mypath + "Masks.pkl", "wb")
+    pickle.dump(getmasks(network), file)
+    file.close()
+
+    W = []
+    for l in range(1, len(network.layers)):
+        w = network.layers[l].get_weights()
+        if isinstance(w, list):
+            W.append([])
+            continue
+        W.append(w)
+
+    file = open(mypath + "Weights.pkl", "wb")
+    pickle.dump(W, file)
+    file.close()
+
     file = open(mypath + "TrainLogs.pkl", "wb")
     pickle.dump(Logs, file)
     file.close()
@@ -452,11 +452,21 @@ def main(args):
     initializer = args.initializer
     activation = args.activation
     masktype = args.masktype
+    nettype = args.nettype
 
     trainWeights, trainMasks = ParamTrainingTypes[trainingtype][0]
     alpha = ParamTrainingTypes[trainingtype][1]
 
-    if "ResNet" in args.nettype:
+    for i in range(100):
+        nettype = np.random.choice(nettype_choice)
+        trainingtype=np.random.choice(traintype_choice)
+        trainingtype=np.random.choice(initializer_choice)
+        trainingtype=np.random.choice(activation_choice)
+        trainingtype=np.random.choice(masktype_choice)
+
+    # return
+
+    if nettype == "ResNet":
         data = utils.SetMyData("CIFAR")
         version = 1
         n = 3
@@ -467,11 +477,11 @@ def main(args):
             "arch": [],
             "seed": myseed,
             "initializer": initializer,
-            "activation": "relu",
+            "activation": activation,
             "masktype": masktype,
             "trainW": trainWeights,
             "trainM": trainMasks,
-            "p1": args.p1,
+            "p1": p1,
             "abg": alpha
         }
 
@@ -486,17 +496,19 @@ def main(args):
 
             if not os.path.exists(outputpath):
                 os.makedirs(outputpath)
-                print("data will be saved at", outputpath)
 
             maxepochs = 200
+            batchsize = 64
             network = ResNetBuilder.MakeResNet(data[0].shape[1:], version, n, config)
             network.compile(loss='categorical_crossentropy', optimizer=tf.keras.optimizers.Adam(lr=0.001), metrics=['accuracy'])
             network.summary()
+            print("data will be saved at", outputpath)
             ResNetTrainer(network, data, outputpath, batchsize, maxepochs)
             kb.clear_session()
+
         return
 
-    if args.nettype == "LeNet":
+    if nettype == "LeNet":
         for _ in range(experiment_repeats):
             if initializer == "binary":
                 W = 0.0005942073791483592
@@ -516,12 +528,15 @@ def main(args):
             network = PrepareMaskedMLP(data, myseed, initializer, activation, masktype, trainWeights, trainMasks, p1, alpha)
             network.compile(loss='categorical_crossentropy', optimizer=tf.keras.optimizers.Adam(lr=lr), metrics=['accuracy'])
             network.summary()
+            print("data will be saved at", outputpath)
             NetworkTrainer(network, data, outputpath, batchsize, maxepochs)
             kb.clear_session()
 
-    if "Conv" in args.nettype:
+        return
+
+    if "Conv" in nettype:
         for _ in range(experiment_repeats):
-            csize = int(args.nettype[-1])
+            csize = int(nettype[-1])
 
             # Pre-calculated W scaling factor (depends on the architecture)
             if initializer == "binary":
@@ -547,8 +562,11 @@ def main(args):
             network = PrepareConvolutional(csize, data, myseed, initializer, activation, masktype, trainWeights, trainMasks, p1, alpha)
             network.compile(loss='categorical_crossentropy', optimizer=tf.keras.optimizers.Adam(lr=lr), metrics=['accuracy'])
             network.summary()
+            print("data will be saved at", outputpath)
             NetworkTrainer(network, data, outputpath, batchsize, maxepochs)
             kb.clear_session()
+
+        return
 
 
 if __name__ == '__main__':
