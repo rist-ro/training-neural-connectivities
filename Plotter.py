@@ -1,112 +1,176 @@
 import glob
 import pickle
 import sys
+import matplotlib
+
+import numpy as np
+from pathlib import Path
+
+import socket
+
+if socket.gethostname() != "CLJ-C-000CQ" and socket.gethostname() != "kneon":
+    matplotlib.use('Agg')
 
 import matplotlib.pyplot as plt
-import numpy as np
+import matplotlib.patches as mpatches
 
 np.set_printoptions(threshold=sys.maxsize)
 
 
-def makelistoffiles(mypath, pattern):
-    netfiles = glob.glob(mypath + pattern)
+def findfiles(mypath, fname):
+    files = []
 
-    for i in range(len(netfiles)):
-        netfiles[i] = netfiles[i].replace('\\', "/")
+    for path in Path(mypath).rglob(fname):
+        # print(path)
+        files.append(path)
+        # print(files[-1])
 
-    return netfiles
-
-
-def MergeTrainLogs(mypath):
-    allfiles = makelistoffiles(mypath, "TrainLogs*.pkl")
-
-    Log0 = pickle.load(open(allfiles[0], "rb"))
-    nepochs = Log0["trainLoss"].shape[-1]
-    nruns = len(list(allfiles))
-    nlayers = len(pickle.load(open(allfiles[0], "rb"))["remainingWeightsPerLayer"][0])
-
-    TstAcc = np.zeros((nepochs, nruns))
-    TrnAcc = np.zeros((nepochs, nruns))
-    ValAcc = np.zeros((nepochs, nruns))
-
-    TstLoss = np.zeros((nepochs, nruns))
-    TrnLoss = np.zeros((nepochs, nruns))
-    ValLoss = np.zeros((nepochs, nruns))
-
-    RemainingWeights = np.zeros((nepochs, nruns))
-    RemainingWeightsPerLayer = np.zeros((nepochs, nruns, nlayers, 6))
-
-    for i, file in enumerate(allfiles):
-        Logs = pickle.load(open(file, "rb"))
-
-        TrnLoss[:, i] = Logs["trainLoss"]
-        ValLoss[:, i] = Logs["valLoss"]
-        TstLoss[:, i] = Logs["testLoss"]
-
-        TrnAcc[:, i] = Logs["trainAccuracy"]
-        ValAcc[:, i] = Logs["valAccuracy"]
-        TstAcc[:, i] = Logs["testAccuracy"]
-
-        RemainingWeights[:, i] = Logs["remainingWeights"]
-        RemainingWeightsPerLayer[:, i, ...] = np.asarray(Logs["remainingWeightsPerLayer"])
-
-    np.save(mypath + "MergedTrainAcc.npy", TrnAcc)
-    np.save(mypath + "MergedValAcc.npy", ValAcc)
-    np.save(mypath + "MergedTestAcc.npy", TstAcc)
-    np.save(mypath + "MergedTrainLoss.npy", TrnLoss)
-    np.save(mypath + "MergedValLoss.npy", ValLoss)
-    np.save(mypath + "MergedTestLoss.npy", TstLoss)
-    np.save(mypath + "MergedRemainingWeights.npy", RemainingWeights)
-    np.save(mypath + "MergedRemainingWeightsPerLayer.npy", RemainingWeightsPerLayer)
-
-    return 0
+    return files
 
 
 def PlotAccuracy(mypath):
-    fig, axes = plt.subplots(2, 1, figsize=(8, 8), dpi=100)
-    AxAccuracy = axes[0]
-    AxSparsity = axes[1]
+    fig, axes = plt.subplots(2, 3, figsize=(27, 10), dpi=60, sharex=True)
 
-    trnAcc = np.load(mypath + "MergedTrainAcc.npy")
-    tstAcc = np.load(mypath + "MergedTestAcc.npy")
-    tstLoss = np.load(mypath + "MergedTestLoss.npy")
-    wj = np.load(mypath + "MergedRemainingWeights.npy")
-    scale = np.max(wj)
+    Panels = {"glorot": 0, "he": 1, "heconstant": 2}
+    Colors = {"Baseline": 'tab:blue', "FreeFlipping": 'tab:orange', "FreePruning": 'tab:green', "MinPruning": 'tab:red', "MinFlipping": 'tab:purple'}
 
-    AxAccuracy.plot(np.mean(tstAcc, axis=1), linewidth=2, c="black")
-    AxAccuracy.plot(np.min(tstAcc, axis=1), linewidth=1, c="black", alpha=0.2)
-    AxAccuracy.plot(np.max(tstAcc, axis=1), linewidth=1, c="black", alpha=0.2)
-    AxAccuracy.fill_between(np.arange(tstAcc.shape[0]), np.min(tstAcc, axis=1), np.max(tstAcc, axis=1), facecolor="black", alpha=0.1)
+    for p in Panels.keys():
+        axes[0][Panels[p]].set_title(p, fontsize=25)
 
-    AxSparsity.plot(1 - np.mean(wj, axis=1) / scale, linewidth=2, c="black", )
-    AxSparsity.plot(1 - np.min(wj, axis=1) / scale, linewidth=1, c="black", alpha=0.2)
-    AxSparsity.plot(1 - np.max(wj, axis=1) / scale, linewidth=1, c="black", alpha=0.2)
-    AxSparsity.fill_between(np.arange(wj.shape[0]), 1 - np.min(wj, axis=1) / scale, 1 - np.max(wj, axis=1) / scale, facecolor="black", alpha=0.1)
+    print("working in ", mypath)
+    Logs = findfiles(mypath, 'TrainLogs.pkl')
+    if len(Logs) == 0:
+        return
+    # print(Logs)
 
-    AxAccuracy.grid(True)
-    AxSparsity.grid(True)
-    AxSparsity.set_xlabel("Epochs", fontsize=20)
-    AxAccuracy.set_ylabel("Test Accuracy", fontsize=18)
-    AxSparsity.set_ylabel("Pruned Weights", fontsize=18)
+    AccCurve = {}
+    NZWCurves = {}
 
-    AxAccuracy.set_ylim((.90, 1.007))
+    for l in Logs:
+        fname = l.as_posix()
+
+        initializer = fname.split('/')[6]
+        traintype = fname.split('/')[2]
+
+        LogFile = pickle.load(open(l, "rb"))
+        start = 0
+        end = None
+        testAccuracy = LogFile['testAccuracy'][start:end]
+        total_weights = np.sum(np.asarray(LogFile['neg_zero_pos_masks'][start:end])[0])
+        nzw = 100 * np.asarray(LogFile['neg_zero_pos_masks'][start:end])[:, 1] / total_weights
+
+        curvename = traintype + "_" + initializer
+        if curvename in AccCurve.keys():
+            AccCurve[curvename].append(testAccuracy)
+        else:
+            AccCurve[curvename] = [testAccuracy]
+
+        if curvename in NZWCurves.keys():
+            NZWCurves[curvename].append(nzw)
+        else:
+            NZWCurves[curvename] = [nzw]
+
+    patches = [[], [], []]
+    labels = [[], [], []]
+
+    selection = None
+    start = 0
+    step = 10
+    widths = 3
+    epochs = len(AccCurve[list(AccCurve.keys())[0]][0])
+    selection = np.append([1, 3, 5], np.arange(10, epochs, step))
+    # selection = np.arange(start,epochs,1)
+    selection2 = np.append([1], np.arange(10, epochs, step))
+    # selection2 = np.arange(start,epochs,1)
+    widths = np.append([1, 1, 1], 5 * np.ones(1 + (epochs - 10) // step, dtype=np.int))
+    print(selection)
+    print(widths)
+    print(AccCurve)
+    for p in AccCurve.keys():
+        traintype = p.split('_')[0]
+        initializer = p.split('_')[1]
+
+        # epochs = len(AccCurve[p][0])
+        # selection = np.arange(start, epochs, step)
+        # selection = np.append([0,5],np.arange(10, epochs, step))
+        # print(AccCurve[p][0])
+        print(selection)
+        # curves = np.asarray(AccCurve[p])
+        # csel=curves[:,selection]
+        # print(csel.shape)
+
+        violin_acc = np.asarray(AccCurve[p])[:, selection]
+        violin_nzw = np.asarray(NZWCurves[p])[:, selection]
+
+        testAccuracy_mean = np.mean(AccCurve[p], axis=0)[selection]
+        nzw_mean = np.mean(NZWCurves[p], axis=0)[selection]
+
+        panel = Panels[initializer]
+        label = traintype + "_" + str(len(AccCurve[p]))
+
+        p = axes[0][panel].violinplot(dataset=violin_acc, positions=selection, showmeans=True, showextrema=True, widths=widths)
+        color = p["bodies"][0].get_facecolor().flatten()
+
+        patches[panel].append(mpatches.Patch(color=color))
+        # axes[0][panel].plot(selection, testAccuracy_mean, color=color, label=label)
+
+        axes[1][panel].violinplot(dataset=violin_nzw, positions=selection, showmeans=True, showextrema=True, widths=widths)
+        axes[1][panel].plot(selection, nzw_mean, color=color, label=label)
+        labels[panel].append(label)
+
+    for panel in [0, 1, 2]:
+        axes[1][panel].legend(patches[panel], labels[panel], ncol=2, fontsize=18)
+
+    networktype = mypath.split('/')[1]
+    limits = {"LeNet": [(.945, .985), (-5, 105), (0.00, 0.5), (100 - 0.006, 100.0006)],
+              "ResNet": [(.70, .91), (-5, 105), (-0.05, 1.05), (100 - 0.012, 100.0012)],
+              "Conv2": [(.70, .91), (-5, 105), (-0.05, 1.05), (100 - 0.012, 100.0012)]
+              }
+
+    axacc = axes[0]
+    axacc[0].set_ylabel("Test Accuracy", fontsize=22)
+
+    axspar = axes[1]
+    axspar[1].set_xlabel("Epoch", fontsize=22)
+    axspar[0].set_ylabel("Pruned/Flipped weights", fontsize=22)
+
+    for ax in axacc:
+        ax.set_ylim(limits[networktype][0])
+        ax.grid(True)
+        ax.set_xticks(selection)
+        # ax.set_xscale('log',base=10)
+
+        for tick in ax.yaxis.get_major_ticks():
+            tick.label.set_fontsize(16)
+        for tick in ax.xaxis.get_major_ticks():
+            tick.label.set_fontsize(16)
+
+    for ax in axspar:
+        # ax.legend(fontsize=18, ncol=2)
+
+        ax.set_ylim(limits[networktype][1])
+        ax.grid(True)
+        ax.set_xticks(selection2)
+        for tick in ax.yaxis.get_major_ticks():
+            tick.label.set_fontsize(16)
+        for tick in ax.xaxis.get_major_ticks():
+            tick.label.set_fontsize(16)
 
     fig.tight_layout(pad=1)
 
-    fig.savefig(mypath + "Accuracy_Sparsity.pdf")
-    fig.savefig(mypath + "Accuracy_Sparsity.png")
-    print("Figures saved in", mypath)
-
-    plt.show()
+    fig.savefig(mypath + "Accuracy_Sparsity" + networktype + ".pdf")
+    fig.savefig(mypath + "Accuracy_Sparsity" + networktype + ".png")
+    if socket.gethostname() == "CLJ-C-000CQ":
+        plt.show()
+    else:
+        print("not showing the plot, check data folder for outputs")
 
     return 0
 
 
 def main():
-    mypath = "Outputs/FreePruning/LeNet/P1_0.5/mask_relu_heconstant_LR0.001/"
-    mypath = "Outputs/FreePruning/LeNet/P1_0.5/mask_relu_he_LR0.001/"
-    mypath = "Outputs/MaxPruning/LeNet/P1_0.5/mask_relu_he_LR0.001/"
-    MergeTrainLogs(mypath)
+    mypath = "Outputs/LeNet/"
+    # mypath = "Outputs/ResNet/"
     PlotAccuracy(mypath)
 
     return 0

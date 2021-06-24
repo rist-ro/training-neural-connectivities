@@ -102,6 +102,13 @@ class MaskedConv2D(Layer):
     def get_mask(self):
         return K.eval(self.masktype(self.score))
 
+    def get_nzpmasks(self):
+        k = K.eval(self.masktype(self.score))
+        neg = np.count_nonzero(k < 0)
+        zeros = np.count_nonzero(k == 0)
+        pos = np.count_nonzero(k > 0)
+        return neg, zeros, pos
+
     def get_kernel(self):
         return K.eval(self.kernel)
 
@@ -197,6 +204,14 @@ class MaskedDense(Layer):
 
     def get_mask(self):
         return K.eval(self.masktype(self.score))
+
+    def get_nzpmasks(self):
+        k = K.eval(self.masktype(self.score))
+        neg = np.count_nonzero(k < 0)
+        zeros = np.count_nonzero(k == 0)
+        pos = np.count_nonzero(k > 0)
+
+        return neg, zeros, pos
 
     def get_kernel(self):
         return K.eval(self.kernel)
