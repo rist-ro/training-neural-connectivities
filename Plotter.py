@@ -37,8 +37,9 @@ def PlotAccuracy(mypath):
     for p in Panels.keys():
         axes[0][Panels[p]].set_title(p, fontsize=25)
 
-    print("working in ", mypath)
     Logs = findfiles(mypath, 'TrainLogs.pkl')
+    print("working in ", mypath, len(Logs), "files found")
+
     if len(Logs) == 0:
         return
     # print(Logs)
@@ -85,12 +86,19 @@ def PlotAccuracy(mypath):
 
     selection = None
     start = 0
-    step = 10
+    step = 20
     epochs = len(AccuracyCurve[list(AccuracyCurve.keys())[0]][0])
     selection = np.append([0, 1, 3, 5], np.arange(10, epochs, step))
     selection2 = np.append([0, 5], np.arange(10, epochs, step))
     widths = np.append([1, 1, 1, 1], 5 * np.ones(1 + (epochs - 10) // step, dtype=np.int))
-    # widths=3
+
+    selection = np.append([0, 5, 10, 20], np.arange(20, epochs, step))
+    selection2 = np.append([0,  10], np.arange(20, epochs, step))
+    widths = np.append([1, 1, 1, 1], 5 * np.ones(1 + (epochs - 10) // step, dtype=np.int))
+    # step=10
+    # selection = np.arange(start, epochs, step)
+    # selection2 = np.arange(start, epochs, step)
+    # widths = 1
 
     for p in reversed(list(AccuracyCurve.keys())):
         traintype = p.split('_')[0]
@@ -101,7 +109,6 @@ def PlotAccuracy(mypath):
 
         # selection = np.arange(start, epochs, step)
         # selection = np.append([0,5],np.arange(10, epochs, step))
-        print(selection)
         # csel=curves[:,selection]
         # print(csel.shape)
 
@@ -118,7 +125,7 @@ def PlotAccuracy(mypath):
             vp = axes[0][panel].violinplot(dataset=violin_acc, positions=selection, showmeans=True, showextrema=True, widths=widths)
             # vp=axes[0][panel].scatter(selection, testAccuracy_mean, color=color, label=label, linewidth=3)
             color = vp["bodies"][0].get_facecolor().flatten()
-            color='black'
+            color = 'black'
             # axes[0][panel].fill_between(selection, np.min(AccuracyCurve[p], axis=0)[selection], np.max(AccuracyCurve[p], axis=0)[selection], facecolor=color, alpha=0.1)
             axes[0][panel].plot(selection, testAccuracy_mean, color='black', label=label, linewidth=3)
         else:
@@ -135,9 +142,11 @@ def PlotAccuracy(mypath):
         axes[1][panel].legend(patches[panel], labels[panel], ncol=2, fontsize=18)
 
     networktype = mypath.split('/')[1]
-    limits = {"LeNet": [(.95, .985), (-5, 105), (0.00, 0.5), (100 - 0.006, 100.0006)],
-              "ResNet": [(.70, .91), (-5, 105), (-0.05, 1.05), (100 - 0.012, 100.0012)],
-              "Conv2": [(.70, .91), (-5, 105), (-0.05, 1.05), (100 - 0.012, 100.0012)]
+    limits = {"LeNet": [(.95, .985), (-5, 75), (0.00, 0.5), (100 - 0.006, 100.0006)],
+              "ResNet": [(.50, .91), (-5, 75), (-0.05, 1.05), (100 - 0.012, 100.0012)],
+              "Conv2": [(.60, .73), (-5, 75), (-0.05, 1.05), (100 - 0.012, 100.0012)],
+              "Conv4": [(.60, .81), (-5, 75), (-0.05, 1.05), (100 - 0.012, 100.0012)],
+              "Conv6": [(.60, .81), (-5, 75), (-0.05, 1.05), (100 - 0.012, 100.0012)]
               }
 
     axacc = axes[0]
@@ -174,18 +183,27 @@ def PlotAccuracy(mypath):
 
     fig.savefig(mypath + "Accuracy_Sparsity" + networktype + ".pdf")
     fig.savefig(mypath + "Accuracy_Sparsity" + networktype + ".png")
-    if socket.gethostname() == "CLJ-C-000CQ":
-        plt.show()
-    else:
-        print("not showing the plot, check data folder for outputs")
+    # if socket.gethostname() == "CLJ-C-000CQ":
+    #     plt.show()
+    # else:
+    #     print("not showing the plot, check data folder for outputs")
 
     return 0
 
 
 def main():
     mypath = "Outputs/LeNet/"
+    mypath = "TestRun/LeNet/"
+    # mypath = "TestRun/Conv2/"
+    # mypath = "TestRun/Conv4/"
+    # mypath = "TestRun/Conv6/"
+    # mypath = "TestRun/ResNet/"
     # mypath = "Outputs/ResNet/"
-    PlotAccuracy(mypath)
+    PlotAccuracy("TestRun/LeNet/")
+    PlotAccuracy("TestRun/Conv2/")
+    PlotAccuracy("TestRun/Conv4/")
+    PlotAccuracy("TestRun/Conv6/")
+    PlotAccuracy("TestRun/ResNet/")
 
     return 0
 

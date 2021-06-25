@@ -13,21 +13,23 @@ learning_rates = {"LeNet": 0.001,
                   "Conv6Baseline": 0.0003, "Conv6FreePruning": 0.003, "Conv6MinPruning": 0.003, "Conv6FreeFlipping": 0.0005, "Conv6MinFlipping": 0.0005,
                   }
 
+batch_sizes = {"LeNet": 25, "Conv2": 25, "Conv4": 25, "Conv6": 25, "ResNet": 64}
+
 parser = argparse.ArgumentParser()
 parser.add_argument('--nettype', type=str, default='LeNet', choices=nettype_choice)
 parser.add_argument('--traintype', type=str, default='FreePruning', choices=traintype_choice)
 parser.add_argument('--initializer', type=str, default='heconstant', choices=initializer_choice)
 parser.add_argument('--activation', type=str, default='relu', choices=activation_choice)
 parser.add_argument('--masktype', type=str, default='mask', choices=masktype_choice)
-parser.add_argument('--batchsize', type=int, default=25)
-parser.add_argument('--maxepochs', type=int, default=100)
+parser.add_argument('--batchsize', type=int, default=128)
+parser.add_argument('--maxepochs', type=int, default=10)
 parser.add_argument('--seed', type=int, default=0)
 parser.add_argument('--p1', type=float, default=0.5)
 parser.add_argument('--lr', type=float, default=1e-3)
 parser.add_argument('--nruns', type=int, default=1)
 parser.add_argument('--gpu', type=int, default=0)
-parser.add_argument('--outputpath', type=str, default="Outputs")
-parser.add_argument('--mock', type=bool, default=False)
+parser.add_argument('--outputpath', type=str, default="TestRun")
+parser.add_argument('--mock', type=bool, default=True)
 args = parser.parse_args()
 
 # os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
@@ -41,6 +43,7 @@ from tensorflow.keras import backend as kb
 import time, uuid, pickle, Networks, utils
 from tensorflow.keras.preprocessing.image import ImageDataGenerator
 import ResNetBuilder
+import random
 
 
 def get_session(gpu_fraction=0.80):
@@ -485,6 +488,10 @@ def main(args):
         initializer = "glorot"
         trainingtype = "MinPruning"
 
+        random.shuffle(nettype_choice)
+        random.shuffle(initializer_choice)
+        random.shuffle(traintype_choice)
+
         for nettype in nettype_choice:
             for initializer in initializer_choice:
                 for trainingtype in traintype_choice:
@@ -494,6 +501,10 @@ def main(args):
 
                     if "Pruning" in trainingtype:
                         masktype = "mask"
+
+                    trainWeights, trainMasks = ParamTrainingTypes[trainingtype][0]
+                    alpha = ParamTrainingTypes[trainingtype][1]
+                    batchsize = batch_sizes[nettype]
 
                     if nettype == "ResNet":
                         version = 1
@@ -527,8 +538,6 @@ def main(args):
                                 if not os.path.exists(outputpath):
                                     os.makedirs(outputpath)
 
-                                maxepochs = 200
-                                batchsize = 64
                                 data = utils.SetMyData("CIFAR")
                                 network = ResNetBuilder.MakeResNet(data[0].shape[1:], version, n, config)
                                 network.compile(loss='categorical_crossentropy', optimizer=tf.keras.optimizers.Adam(lr=0.001), metrics=['accuracy'])
@@ -537,7 +546,6 @@ def main(args):
                                 kb.clear_session()
 
                     if nettype == "LeNet":
-                        batchsize = 25
                         lr = learning_rates["LeNet"]
 
                         for _ in range(experiment_repeats):
@@ -566,8 +574,7 @@ def main(args):
                                 kb.clear_session()
 
                     if "Conv" in nettype:
-                        batchsize = 25
-                        lr = learning_rates[nettype + initializer]
+                        lr = learning_rates[nettype + trainingtype]
 
                         for _ in range(experiment_repeats):
                             csize = int(nettype[-1])
