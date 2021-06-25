@@ -78,7 +78,7 @@ class MaskedConv2D(Layer):
         """
 
         act = K.conv2d(x, self.kernel * self.masktype(self.score), strides=(self.stride, self.stride), padding='same')
-        act = activate(act, self.activation)
+        # act = activate(act, self.activation)
 
         return act
 
@@ -181,7 +181,7 @@ class MaskedDense(Layer):
         """
 
         act = K.dot(x, self.kernel * self.masktype(self.score))
-        act = activate(act, self.activation)
+        # act = activate(act, self.activation)
 
         return act
 

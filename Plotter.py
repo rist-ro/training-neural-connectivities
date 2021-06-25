@@ -183,10 +183,10 @@ def PlotAccuracy(mypath):
 
     fig.savefig(mypath + "Accuracy_Sparsity" + networktype + ".pdf")
     fig.savefig(mypath + "Accuracy_Sparsity" + networktype + ".png")
-    # if socket.gethostname() == "CLJ-C-000CQ":
-    #     plt.show()
-    # else:
-    #     print("not showing the plot, check data folder for outputs")
+    if socket.gethostname() == "CLJ-C-000CQ":
+        plt.show()
+    else:
+        print("not showing the plot, check data folder for outputs")
 
     return 0
 
@@ -199,10 +199,10 @@ def main():
     # mypath = "TestRun/Conv6/"
     # mypath = "TestRun/ResNet/"
     # mypath = "Outputs/ResNet/"
-    PlotAccuracy("TestRun/LeNet/")
-    PlotAccuracy("TestRun/Conv2/")
-    PlotAccuracy("TestRun/Conv4/")
-    PlotAccuracy("TestRun/Conv6/")
+    # PlotAccuracy("TestRun/LeNet/")
+    # PlotAccuracy("TestRun/Conv2/")
+    # PlotAccuracy("TestRun/Conv4/")
+    # PlotAccuracy("TestRun/Conv6/")
     PlotAccuracy("TestRun/ResNet/")
 
     return 0
