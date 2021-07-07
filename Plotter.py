@@ -60,7 +60,7 @@ def PlotAccuracy(mypath):
         testAccuracy = LogFile['testAccuracy'][start:end]
         total_weights = np.sum(np.asarray(LogFile['neg_zero_pos_masks'][start:end])[0])
         # changed_weights = 100 * np.asarray(LogFile['neg_zero_pos_masks'][start:end])[:, 1] / total_weights
-        changed_weights = 100 * (total_weights - np.asarray(LogFile['neg_zero_pos_masks'][start:end])[:, 2]) / total_weights
+        changed_weights = (total_weights - np.asarray(LogFile['neg_zero_pos_masks'][start:end])[:, 2]) / total_weights
 
         # changed_weights = 100 * np.asarray(LogFile['neg_zero_pos_masks'][start:end])[:, 1] / total_weights
 
@@ -95,7 +95,8 @@ def PlotAccuracy(mypath):
 
     manual_selection=[0,5,10,17,25,50,75,100]
     datapoint_selection=[0,10,30,50,80,100]
-    datapoint_selection=[0,3,12,25,40,60,80,100]
+    datapoint_selection=[0,3,12,25,40,50,60,70,80,90,100]
+    datapoint_selection=[0,3,10,20,30,40,50,60,70,80,90,100]
 
     # datapoint_selection = np.append([0, 5, 10, 15, 22], np.arange(30, epochs, step))
     # datapoint_selection = manual_selection
@@ -106,6 +107,7 @@ def PlotAccuracy(mypath):
     ticks_selection = np.append([0, 5, 10], np.arange(20, epochs, step))
     ticks_selection = datapoint_selection
     ticks_selection = [0,12,25,40,60,80,100]
+    ticks_selection = np.arange(0, epochs, 10)
 
     # selection2 = np.logspace(0,7,15,base=2).astype(np.int)
     widths = np.append([1, 1, 1, 1], 5 * np.ones(1 + (epochs -10) // step, dtype=np.int))
@@ -157,18 +159,19 @@ def PlotAccuracy(mypath):
         axes[1][panel].legend(patches[panel], labels[panel], ncol=2, fontsize=18)
 
     networktype = mypath.split('/')[1]
-    limits = {"LeNet": [(.95, .985), (-5, 100), (0.00, 0.5), (100 - 0.006, 100.0006)],
-              "Conv2": [(.55, .72), (-5, 100), (-0.05, 1.05), (100 - 0.012, 100.0012)],
-              "Conv4": [(.55, .81), (-5, 100), (-0.05, 1.05), (100 - 0.012, 100.0012)],
-              "Conv6": [(.55, .81), (-5, 100), (-0.05, 1.05), (100 - 0.012, 100.0012)],
-              "ResNet": [(.50, .91), (-5, 100), (-0.05, 1.05), (100 - 0.012, 100.0012)]
+
+    limits = {"LeNet": [(.95, .985), (-.05, .9), (0.00, 0.5), (100 - 0.006, 100.0006)],
+              "Conv2": [(.55, .72), (-.05, .9), (-0.05, 1.05), (100 - 0.012, 100.0012)],
+              "Conv4": [(.55, .78), (-.05, .9), (-0.05, 1.05), (100 - 0.012, 100.0012)],
+              "Conv6": [(.56, .82), (-.05, .9), (-0.05, 1.05), (100 - 0.012, 100.0012)],
+              "ResNet": [(.50, .91), (-.05, .9), (-0.05, 1.05), (100 - 0.012, 100.0012)]
               }
 
     axacc = axes[0]
     axacc[0].set_ylabel("Test Accuracy", fontsize=22)
 
     axspar = axes[1]
-    axspar[1].set_xlabel("Epoch", fontsize=22)
+    axspar[1].set_xlabel(networktype+" training epoch", fontsize=22)
     axspar[0].set_ylabel("Pruned/Flipped weights", fontsize=22)
 
     for ax in axacc:
@@ -215,7 +218,7 @@ def main():
     # mypath = "TestRun/Conv6/"
     # mypath = "TestRun/ResNet/"
     # mypath = "Outputs/ResNet/"
-    # PlotAccuracy("Run_07_05/LeNet/")
+    PlotAccuracy("Run_07_05/LeNet/")
     PlotAccuracy("Run_07_06/Conv2/")
     PlotAccuracy("Run_07_06/Conv4/")
     PlotAccuracy("Run_07_06/Conv6/")

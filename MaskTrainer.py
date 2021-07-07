@@ -4,8 +4,8 @@ import argparse
 nettype_choice = ["LeNet", "Conv2", "Conv4", "Conv6", "ResNet"]
 traintype_choice = ["MinPruning", "MinFlipping", "FreePruning", "FreeFlipping", "Baseline"]
 initializer_choice = ["glorot", "he", "heconstant"]  # , "binary"]
-activation_choice = ["relu"]  # , "swish", "sigmoid", "elu", "selu"]
-masktype_choice = ["mask", "flip"]  # , "mask_rs"]
+activation_choice = ["relu"]
+masktype_choice = ["mask", "flip"]
 
 learning_rates = {"LeNet": 0.001,
                   "Conv2Baseline": 0.0001, "Conv2FreePruning": 0.003, "Conv2MinPruning": 0.003, "Conv2FreeFlipping": 0.0005, "Conv2MinFlipping": 0.0005,
@@ -13,7 +13,7 @@ learning_rates = {"LeNet": 0.001,
                   "Conv6Baseline": 0.0003, "Conv6FreePruning": 0.003, "Conv6MinPruning": 0.003, "Conv6FreeFlipping": 0.0005, "Conv6MinFlipping": 0.0005,
                   }
 
-batch_sizes = {"LeNet": 25, "Conv2": 64, "Conv4": 64, "Conv6": 64, "ResNet": 64}
+batch_sizes = {"LeNet": 64, "Conv2": 64, "Conv4": 64, "Conv6": 64, "ResNet": 128}
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--nettype', type=str, default='LeNet', choices=nettype_choice)
@@ -468,37 +468,22 @@ def main(args):
     masktype = args.masktype
     nettype = args.nettype
 
-    # trainWeights, trainMasks = ParamTrainingTypes[trainingtype][0]
-    # alpha = ParamTrainingTypes[trainingtype][1]
-
-    # for i in range(100):
-    #     nettype = np.random.choice(nettype_choice)
-    #     trainingtype = np.random.choice(traintype_choice)
-    #     initializer = np.random.choice(initializer_choice)
-    #     activation = np.random.choice(activation_choice)
-    #     if "Flipping" in trainingtype:
-    #         masktype = "flip"
-    #
-    #     if "Pruning" in trainingtype:
-    #         masktype = "mask"
-
     set_manual = True
     if set_manual:
 
         random.shuffle(nettype_choice)
         random.shuffle(initializer_choice)
-        # random.shuffle(traintype_choice)
+        random.shuffle(traintype_choice)
 
         for nettype in nettype_choice:
             for initializer in initializer_choice:
                 for trainingtype in traintype_choice:
 
                     # overwrite parameters here
-                    nettype = "ResNet"
+                    # nettype = "ResNet"
                     # nettype = "LeNet"
-                    initializer = "heconstant"
-                    trainingtype = "FreePruning"
-                    trainingtype = "MinPruning"
+                    # initializer = "heconstant"
+                    # trainingtype = "MinPruning"
 
                     if "Flipping" in trainingtype:
                         masktype = "flip"
@@ -513,7 +498,6 @@ def main(args):
                     if nettype == "ResNet":
                         version = 1
                         n = 3
-                        print(alpha)
 
                         config = {
                             "name": "ResNet",
@@ -526,7 +510,7 @@ def main(args):
                             "trainW": trainWeights,
                             "trainM": trainMasks,
                             "p1": p1,
-                            "abg": alpha*0.2
+                            "abg": alpha * 0.2
                         }
 
                         for _ in range(experiment_repeats):
@@ -538,7 +522,6 @@ def main(args):
                             runID = uuid.uuid4().hex[-7:]
                             outputpath += runID + "/"
 
-                            print("data will be saved at", outputpath)
                             if not args.mock:
                                 if not os.path.exists(outputpath):
                                     os.makedirs(outputpath)
@@ -547,6 +530,7 @@ def main(args):
                                 network = ResNetBuilder.MakeResNet(data[0].shape[1:], version, n, config)
                                 network.compile(loss='categorical_crossentropy', optimizer=tf.keras.optimizers.Adam(lr=0.001), metrics=['accuracy'])
                                 network.summary()
+                                print("data will be saved at", outputpath)
                                 ResNetTrainer(network, data, outputpath, batchsize, maxepochs)
                                 kb.clear_session()
 
@@ -565,8 +549,6 @@ def main(args):
                             runID = uuid.uuid4().hex[-7:]
                             outputpath += runID + "/"
 
-                            print("data will be saved at", outputpath)
-
                             if not args.mock:
                                 if not os.path.exists(outputpath):
                                     os.makedirs(outputpath)
@@ -575,6 +557,7 @@ def main(args):
                                 network = PrepareMaskedMLP(data, myseed, initializer, activation, masktype, trainWeights, trainMasks, p1, alpha)
                                 network.compile(loss='categorical_crossentropy', optimizer=tf.keras.optimizers.Adam(lr=lr), metrics=['accuracy'])
                                 network.summary()
+                                print("data will be saved at", outputpath)
                                 NetworkTrainer(network, data, outputpath, batchsize, maxepochs)
                                 kb.clear_session()
 
@@ -600,8 +583,6 @@ def main(args):
                             runID = uuid.uuid4().hex[-7:]
                             outputpath += runID + "/"
 
-                            print("data will be saved at", outputpath)
-
                             if not args.mock:
                                 if not os.path.exists(outputpath):
                                     os.makedirs(outputpath)
@@ -610,6 +591,7 @@ def main(args):
                                 network = PrepareConvolutional(csize, data, myseed, initializer, activation, masktype, trainWeights, trainMasks, p1, alpha)
                                 network.compile(loss='categorical_crossentropy', optimizer=tf.keras.optimizers.Adam(lr=lr), metrics=['accuracy'])
                                 network.summary()
+                                print("data will be saved at", outputpath)
                                 NetworkTrainer(network, data, outputpath, batchsize, maxepochs)
 
                                 kb.clear_session()
