@@ -36,8 +36,10 @@ def makeMaskedCNN(inshape, cnn_arch, dense_arch, activation, myseed, initializer
     LF = Flatten()(CI)
     for i in range(0, len(arch) - 1):
         LF = MaskedDense(dense_arch[i], activation, seeds[len(cnn_arch) + i + 1], initializer, masktype, trainW, trainM, p1, alpha)(LF)
+        LF = Activation(activation)(LF)
 
-    LF = MaskedDense(dense_arch[-1], 'softmax', seeds[-1], initializer, masktype, trainW, trainM, p1, alpha)(LF)
+    LF = MaskedDense(dense_arch[-1], None, seeds[-1], initializer, masktype, trainW, trainM, p1, alpha)(LF)
+    LF = Activation('softmax')(LF)
 
     # define the model, connecting the input to the last layer
     model = Model(input_img, LF)

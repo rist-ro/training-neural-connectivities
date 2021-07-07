@@ -146,7 +146,7 @@ def resnet_v1(input_shape, depth, num_classes=10, initializer='heconstant', laye
     alpha = layersconfig['abg']
     p1 = layersconfig['p1']
 
-    dense = MaskedDense(num_classes, 'softmax', seed=myseed, initializer=initializer, masktype=masktype, trainweights=trainW, trainmask=trainM, p1=p1, alpha=alpha)
+    dense = MaskedDense(num_classes, None, seed=myseed, initializer=initializer, masktype=masktype, trainweights=trainW, trainmask=trainM, p1=p1, alpha=alpha)
 
     outputs = dense(y)
     outputs = Activation('softmax')(outputs)

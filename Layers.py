@@ -45,13 +45,13 @@ class MaskedConv2D(Layer):
 
     def build(self, input_shape):
         if self.initializer == 'normal':
-            ki = tf.compat.v1.keras.initializers.RandomNormal(mean=0., stddev=0.05, seed=self.seed)
+            ki = tf.compat.v1.keras.initializers.RandomNormal(mean=0., stddev=0.05)
 
         if self.initializer == 'glorot':
-            ki = tf.compat.v1.keras.initializers.glorot_normal(self.seed)
+            ki = tf.compat.v1.keras.initializers.glorot_normal()
 
         if self.initializer == 'he':
-            ki = tf.compat.v1.keras.initializers.he_normal(self.seed)
+            ki = tf.compat.v1.keras.initializers.he_normal()
 
         if self.initializer == "heconstant":
             ki = heconstant(self.p1, self.seed)
@@ -62,24 +62,18 @@ class MaskedConv2D(Layer):
         kshape = list(self.kernelsize) + [input_shape.as_list()[-1], self.filters]
         self.kernel = self.add_weight(name='kernel', shape=kshape, initializer=ki, trainable=self.trainW)
 
-        si = tf.compat.v1.keras.initializers.RandomUniform(minval=minval, maxval=maxval, seed=self.seed)
+        si = tf.compat.v1.keras.initializers.RandomUniform(minval=minval, maxval=maxval)
         self.score = self.add_weight(name='score', shape=kshape, initializer=si, trainable=self.trainM)
 
         if self.alpha != 0:
-            self.add_loss(self.alpha * tf.reduce_mean(self.masktype(self.score)))
+            self.add_loss(self.alpha *tf.reduce_mean(self.masktype(self.score)))
+            # self.add_loss(tf.abs(self.alpha - tf.reduce_mean(self.masktype(self.score))))
+            # self.add_loss(tf.abs(self.alpha - tf.reduce_mean(Mask(self.mask_function, self.kernel, self.kernel_score))))
 
         super(MaskedConv2D, self).build(input_shape)  # Be sure to call this at the end
 
     def call(self, x):
-        """
-        THis is the layer's logic
-        :param x: input
-        :return: output
-        """
-
         act = K.conv2d(x, self.kernel * self.masktype(self.score), strides=(self.stride, self.stride), padding='same')
-        # act = activate(act, self.activation)
-
         return act
 
     # needed for keras to calculate the outputshape of an operation
@@ -146,13 +140,13 @@ class MaskedDense(Layer):
     def build(self, input_shape):
 
         if self.initializer == 'normal':
-            ki = tf.compat.v1.keras.initializers.RandomNormal(mean=0.1, stddev=0.05, seed=self.seed)
+            ki = tf.compat.v1.keras.initializers.RandomNormal(mean=0.1, stddev=0.05)
 
         if self.initializer == 'glorot':
-            ki = tf.compat.v1.keras.initializers.glorot_normal(self.seed)
+            ki = tf.compat.v1.keras.initializers.glorot_normal()
 
         if self.initializer == 'he':
-            ki = tf.compat.v1.keras.initializers.he_normal(self.seed)
+            ki = tf.compat.v1.keras.initializers.he_normal()
 
         if self.initializer == "heconstant":
             ki = heconstant(self.p1, self.seed)
@@ -165,24 +159,21 @@ class MaskedDense(Layer):
         # define weights using the API available method (self.add_weights)
         self.kernel = self.add_weight(name='kernel', shape=kshape, initializer=ki, trainable=self.trainW)
 
-        si = tf.compat.v1.keras.initializers.RandomUniform(minval=minval, maxval=maxval, seed=self.seed)
+        si = tf.compat.v1.keras.initializers.RandomUniform(minval=minval, maxval=maxval)
         self.score = self.add_weight(name='score', shape=kshape, initializer=si, trainable=self.trainM)
 
         if self.alpha != 0:
+            # self.add_loss(self.alpha *tf.reduce_sum(self.masktype(self.score)))
+
             self.add_loss(self.alpha * tf.reduce_mean(self.masktype(self.score)))
+            # self.add_loss(tf.abs(self.alpha - tf.reduce_mean(self.masktype(self.score))))
+            # self.add_loss((1 + self.alpha * tf.reduce_mean(self.masktype(self.score))))
+            # self.add_loss(self.alpha * (-1 + tf.reduce_mean(self.masktype(self.score))))
 
         super(MaskedDense, self).build(input_shape)  # Be sure to call this at the end
 
     def call(self, x):
-        """
-        THis is the layer's logic
-        :param x: input
-        :return: output
-        """
-
         act = K.dot(x, self.kernel * self.masktype(self.score))
-        # act = activate(act, self.activation)
-
         return act
 
     # needed for keras to calculate the outputshape of an operation

@@ -2,18 +2,18 @@ import os
 import argparse
 
 nettype_choice = ["LeNet", "Conv2", "Conv4", "Conv6", "ResNet"]
-traintype_choice = ["Baseline", "FreePruning", "MinPruning", "FreeFlipping", "MinFlipping"]
+traintype_choice = ["MinPruning", "MinFlipping", "FreePruning", "FreeFlipping", "Baseline"]
 initializer_choice = ["glorot", "he", "heconstant"]  # , "binary"]
 activation_choice = ["relu"]  # , "swish", "sigmoid", "elu", "selu"]
 masktype_choice = ["mask", "flip"]  # , "mask_rs"]
 
 learning_rates = {"LeNet": 0.001,
-                  "Conv2Baseline": 0.0002, "Conv2FreePruning": 0.003, "Conv2MinPruning": 0.003, "Conv2FreeFlipping": 0.0005, "Conv2MinFlipping": 0.0005,
+                  "Conv2Baseline": 0.0001, "Conv2FreePruning": 0.003, "Conv2MinPruning": 0.003, "Conv2FreeFlipping": 0.0005, "Conv2MinFlipping": 0.0005,
                   "Conv4Baseline": 0.0003, "Conv4FreePruning": 0.003, "Conv4MinPruning": 0.003, "Conv4FreeFlipping": 0.0005, "Conv4MinFlipping": 0.0005,
                   "Conv6Baseline": 0.0003, "Conv6FreePruning": 0.003, "Conv6MinPruning": 0.003, "Conv6FreeFlipping": 0.0005, "Conv6MinFlipping": 0.0005,
                   }
 
-batch_sizes = {"LeNet": 25, "Conv2": 25, "Conv4": 25, "Conv6": 25, "ResNet": 64}
+batch_sizes = {"LeNet": 25, "Conv2": 64, "Conv4": 64, "Conv6": 64, "ResNet": 64}
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--nettype', type=str, default='LeNet', choices=nettype_choice)
@@ -22,14 +22,14 @@ parser.add_argument('--initializer', type=str, default='heconstant', choices=ini
 parser.add_argument('--activation', type=str, default='relu', choices=activation_choice)
 parser.add_argument('--masktype', type=str, default='mask', choices=masktype_choice)
 parser.add_argument('--batchsize', type=int, default=128)
-parser.add_argument('--maxepochs', type=int, default=10)
+parser.add_argument('--maxepochs', type=int, default=200)
 parser.add_argument('--seed', type=int, default=0)
 parser.add_argument('--p1', type=float, default=0.5)
 parser.add_argument('--lr', type=float, default=1e-3)
 parser.add_argument('--nruns', type=int, default=1)
 parser.add_argument('--gpu', type=int, default=0)
-parser.add_argument('--outputpath', type=str, default="TestRun")
-parser.add_argument('--mock', type=bool, default=True)
+parser.add_argument('--outputpath', type=str, default="Run_07_07")
+parser.add_argument('--mock', type=bool, default=False)
 args = parser.parse_args()
 
 # os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
@@ -468,8 +468,8 @@ def main(args):
     masktype = args.masktype
     nettype = args.nettype
 
-    trainWeights, trainMasks = ParamTrainingTypes[trainingtype][0]
-    alpha = ParamTrainingTypes[trainingtype][1]
+    # trainWeights, trainMasks = ParamTrainingTypes[trainingtype][0]
+    # alpha = ParamTrainingTypes[trainingtype][1]
 
     # for i in range(100):
     #     nettype = np.random.choice(nettype_choice)
@@ -484,17 +484,21 @@ def main(args):
 
     set_manual = True
     if set_manual:
-        nettype = "LeNet"
-        initializer = "glorot"
-        trainingtype = "MinPruning"
 
         random.shuffle(nettype_choice)
         random.shuffle(initializer_choice)
-        random.shuffle(traintype_choice)
+        # random.shuffle(traintype_choice)
 
         for nettype in nettype_choice:
             for initializer in initializer_choice:
                 for trainingtype in traintype_choice:
+
+                    # overwrite parameters here
+                    nettype = "ResNet"
+                    # nettype = "LeNet"
+                    initializer = "heconstant"
+                    trainingtype = "FreePruning"
+                    trainingtype = "MinPruning"
 
                     if "Flipping" in trainingtype:
                         masktype = "flip"
@@ -509,6 +513,7 @@ def main(args):
                     if nettype == "ResNet":
                         version = 1
                         n = 3
+                        print(alpha)
 
                         config = {
                             "name": "ResNet",
@@ -516,12 +521,12 @@ def main(args):
                             "arch": [],
                             "seed": myseed,
                             "initializer": initializer,
-                            "activation": activation,
+                            "activation": 'relu',
                             "masktype": masktype,
                             "trainW": trainWeights,
                             "trainM": trainMasks,
                             "p1": p1,
-                            "abg": alpha
+                            "abg": alpha*0.2
                         }
 
                         for _ in range(experiment_repeats):

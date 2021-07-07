@@ -13,7 +13,7 @@ def heconstant(p1, myseed):
     def initializer(shape, dtype=None):
         a = np.sqrt(2 / np.prod(shape[:-1]))
         p2 = 1. - p1
-        np.random.seed(myseed)
+        # np.random.seed(myseed)
         distribution = np.random.choice([1., -1.], shape, p=[p1, p2])
         return tf.Variable(a * distribution, dtype=dtype, name=uuid.uuid4().hex)
 
