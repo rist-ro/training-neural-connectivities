@@ -546,23 +546,38 @@ def PlotAccuracyP1(mypath, included_nets=None, included_p1=None, tickallpoints=N
     datapoint_selection = []
     for l in Logs:
         fname = l.as_posix()
+        # print(fname)
         nettype = fname.split('/')[1]
         p1 = float(fname.split('/')[-7].split('_')[-1])
+
+        lr = float(fname.split('/')[7][2:])
+
+        # if p1 < 0.8:
+        #     continue
+        #
+        # if nettype == "Conv6" and (p1 == 0.9 or p1 == 0.8):
+        #     if lr != 0.00025:
+        #         continue
+
+        print(lr, nettype, p1)
+
         if nettype not in included_nets:
             continue
 
         if included_p1 is not None and p1 not in included_p1:
             continue
 
-        datapoint_selection.append(p1)
-
-        # key = nettype + "_" + str(p1)
         LogFile = pickle.load(open(l, "rb"))
         start = -1
         end = None
         testAccuracy = np.max(LogFile['testAccuracy'])
+        if testAccuracy < 0.61:
+            continue
+        if nettype == "Conv4" and testAccuracy < 0.7:
+            continue
         total_weights = np.sum(np.asarray(LogFile['neg_zero_pos_masks'][start:end])[0])
         changed_weights = (total_weights - np.min(np.asarray(LogFile['neg_zero_pos_masks'][start:end])[:, 2])) / total_weights
+        datapoint_selection.append(p1)
 
         if nettype in net_dict.keys():
             if p1 in net_dict[nettype].keys():
@@ -572,7 +587,7 @@ def PlotAccuracyP1(mypath, included_nets=None, included_p1=None, tickallpoints=N
         else:
             net_dict[nettype] = {}
 
-    print(net_dict)
+    # print(net_dict)
     patches = []
     labels = []
     for nt in sorted(list(net_dict.keys())):
@@ -591,12 +606,17 @@ def PlotAccuracyP1(mypath, included_nets=None, included_p1=None, tickallpoints=N
 
         positions = np.asarray(sorted(list(net_dict[nt].keys())))
         log_positions = np.log10(positions)
-        vp = axes[0].violinplot(dataset=accuracies, positions=log_positions, showmeans=True, showextrema=True, widths=.1)
+        if "Conv" in nt:
+            widths = 0.02
+        else:
+            widths = 0.1
+
+        vp = axes[0].violinplot(dataset=accuracies, positions=log_positions, showmeans=True, showextrema=True, widths=widths)
         color = vp["bodies"][0].get_facecolor().flatten()
         patches.append(mpatches.Patch(color=color))
         labels.append(nt)
 
-        axes[1].violinplot(dataset=chweights, positions=log_positions, showmeans=True, showextrema=True, widths=.1)
+        axes[1].violinplot(dataset=chweights, positions=log_positions, showmeans=True, showextrema=True, widths=widths)
         # print(acc)
         # print(nzw)
         # print(np.asarray(accuracies).shape)
@@ -613,9 +633,10 @@ def PlotAccuracyP1(mypath, included_nets=None, included_p1=None, tickallpoints=N
 
     # print(np.where(positions == 0.5)[0][0])
     # input()
-    tickpos = [0, 1, np.where(positions == 0.5)[0][0], -1]
     if tickallpoints:
-        tickpos=np.arange(0,len(positions))
+        tickpos = np.arange(0, len(positions))
+    else:
+        tickpos = [0, 1, np.where(positions == 0.5)[0][0], -1]
 
     print(positions)
     for ax in axes:
@@ -628,6 +649,9 @@ def PlotAccuracyP1(mypath, included_nets=None, included_p1=None, tickallpoints=N
     # axes[1].set_xticklabels([0.01, 0.1, 0.5, 1])
 
     fig.tight_layout(pad=1)
+
+    fig.savefig(mypath.split('/')[0] + "/Accuracy_Sparsity_p1_" + "_".join(included_nets) + ".png")
+    fig.savefig(mypath.split('/')[0] + "/Accuracy_Sparsity_p1_" + "_".join(included_nets) + ".pdf")
     plt.show()
     return
 
