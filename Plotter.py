@@ -536,25 +536,27 @@ def PlotAccuracyBinary(mypath, excluded=None):
     return 0
 
 
-def PlotAccuracyP1(mypath, excluded=None):
-    fig, axes = plt.subplots(2, 1, figsize=(12, 7), dpi=60)
+def PlotAccuracyP1(mypath, included_nets=None, included_p1=None, tickallpoints=None):
+    fig, axes = plt.subplots(2, 1, figsize=(12, 7), dpi=60, sharex=True)
 
     Logs = findfiles(mypath, 'TrainLogs.pkl')
     print("working in ", mypath, len(Logs), "files found")
 
-    AccuracyCurve = {}
-    ChangedWeightsCurves = {}
     net_dict = {}
-
     datapoint_selection = []
-
     for l in Logs:
         fname = l.as_posix()
         nettype = fname.split('/')[1]
         p1 = float(fname.split('/')[-7].split('_')[-1])
+        if nettype not in included_nets:
+            continue
+
+        if included_p1 is not None and p1 not in included_p1:
+            continue
+
         datapoint_selection.append(p1)
 
-        key = nettype + "_" + str(p1)
+        # key = nettype + "_" + str(p1)
         LogFile = pickle.load(open(l, "rb"))
         start = -1
         end = None
@@ -570,21 +572,11 @@ def PlotAccuracyP1(mypath, excluded=None):
         else:
             net_dict[nettype] = {}
 
-        # if key in AccuracyCurve.keys():
-        #     AccuracyCurve[key].append(testAccuracy)
-        # else:
-        #     AccuracyCurve[key] = [testAccuracy]
-        #
-        # if key in ChangedWeightsCurves.keys():
-        #     ChangedWeightsCurves[key].append(changed_weights)
-        # else:
-        #     ChangedWeightsCurves[key] = [changed_weights]
-
     print(net_dict)
     patches = []
     labels = []
-    for nt in net_dict.keys():
-        positions = list(net_dict[nt].keys())
+    for nt in sorted(list(net_dict.keys())):
+        positions = sorted(list(net_dict[nt].keys()))
         # positions = np.asarray(list(net_dict[nt].keys()))
         # positions = np.log10(positions)
         accuracies = []
@@ -597,110 +589,45 @@ def PlotAccuracyP1(mypath, excluded=None):
             accuracies.append(acc)
             chweights.append(nzw)
 
-        positions = np.asarray(list(net_dict[nt].keys()))
-        positions = np.log10(positions)
-        vp = axes[0].violinplot(dataset=accuracies, positions=positions, showmeans=True, showextrema=True, widths=.1)
+        positions = np.asarray(sorted(list(net_dict[nt].keys())))
+        log_positions = np.log10(positions)
+        vp = axes[0].violinplot(dataset=accuracies, positions=log_positions, showmeans=True, showextrema=True, widths=.1)
         color = vp["bodies"][0].get_facecolor().flatten()
         patches.append(mpatches.Patch(color=color))
         labels.append(nt)
 
-        axes[1].violinplot(dataset=chweights, positions=positions, showmeans=True, showextrema=True, widths=.1)
+        axes[1].violinplot(dataset=chweights, positions=log_positions, showmeans=True, showextrema=True, widths=.1)
         # print(acc)
         # print(nzw)
         # print(np.asarray(accuracies).shape)
 
     axes[0].set_ylabel("Test Accuracy", fontsize=22)
-    axes[0].legend(patches, labels, ncol=1, fontsize=18,loc=2)
-    axes[0].grid(True)
-    # axes[0].set_xticks([-2, -1,-0.6989, -0.3, 0])
-    # axes[0].set_xticklabels([0.01, 0.1, 0.2,0.5, 1])
-    axes[0].set_xticks([-2, -1, -0.3, 0])
-    axes[0].set_xticklabels([0.01, 0.1,0.5, 1])
+    axes[1].legend(patches, labels, ncol=1, fontsize=18, loc=2)
+
+    # axes[0].set_xticks([-2, -1, -0.3, 0])
+    # axes[0].set_xticklabels([0.01, 0.1, 0.5, 1])
 
     axes[1].set_xlabel("Probability of chosing a positive value", fontsize=22)
     axes[1].set_ylabel("Pruned weights", fontsize=22)
     axes[1].grid(True)
+
+    # print(np.where(positions == 0.5)[0][0])
+    # input()
+    tickpos = [0, 1, np.where(positions == 0.5)[0][0], -1]
+    if tickallpoints:
+        tickpos=np.arange(0,len(positions))
+
+    print(positions)
+    for ax in axes:
+        ax.grid(True)
+        ax.set_xticks((log_positions[tickpos] * 1000).astype(int) / 1000)
+        ax.set_xticklabels((positions[tickpos] * 1000).astype(int) / 1000)
     # axes[1].set_xticks([-2, -1,-0.6989, -0.3, 0])
-    # axes[1].set_xticklabels([0.01, 0.1, 0.2,0.5, 1])
-    axes[1].set_xticks([-2, -1, -0.3, 0])
-    axes[1].set_xticklabels([0.01, 0.1,0.5, 1])
+    # axes[1].set_xticklabels(positions)
+    # axes[1].set_xticks([-2, -1, -0.3, 0])
+    # axes[1].set_xticklabels([0.01, 0.1, 0.5, 1])
 
     fig.tight_layout(pad=1)
-    plt.show()
-    return
-
-    violincurveacc = []
-    violincurvenzw = []
-    positions = []
-    for k in list(AccuracyCurve.keys()):
-        p1 = np.log10(float(k.split("_")[1]))
-        nettype = k.split("_")[0]
-        print(k, nettype, p1, AccuracyCurve[k], ChangedWeightsCurves[k])
-        violincurveacc.append(np.asarray(AccuracyCurve[k]))
-        violincurvenzw.append(np.asarray(ChangedWeightsCurves[k]))
-        positions.append(p1)
-
-    patches = []
-    labels = []
-    vp = axes[0].violinplot(dataset=violincurveacc, positions=positions, showmeans=True, showextrema=True, widths=.1)
-    color = vp["bodies"][0].get_facecolor().flatten()
-    patches.append(mpatches.Patch(color=color))
-    labels.append()
-    axes[1].violinplot(dataset=violincurvenzw, positions=positions, showmeans=True, showextrema=True, widths=.1)
-
-    axes[0].legend(patches, labels, ncol=2, fontsize=18)
-    axes[0].set_ylabel("Test Accuracy", fontsize=22)
-    axes[0].grid(True)
-    axes[0].set_xticks([-2, -1, -0.3, 0])
-    axes[0].set_xticklabels([0.01, 0.1, 0.5, 1])
-
-    axes[1].set_ylabel("Pruned weights", fontsize=22)
-    axes[1].grid(True)
-    axes[1].set_xticks([-2, -1, -0.3, 0])
-    axes[1].set_xticklabels([0.01, 0.1, 0.5, 1])
-    # axes.set_xscale('log',base=10)
-    fig.tight_layout(pad=1)
-
-    plt.show()
-    return
-    # k0 = list(D.keys())[0]
-    # print(k0)
-    # print(D[k0])
-    # print(set(sorted(datapoint_selection)))
-    # print(sorted(list(D.keys())))
-
-    datapoint_selection = sorted(list(AccuracyCurve.keys()))
-    # print(datapoint_selection)
-    # input()
-
-    accurve = []
-    nzwcurve = []
-    for k in sorted(list(AccuracyCurve.keys())):
-        # print(k,D[k])
-        acc = np.asarray(AccuracyCurve[k])
-        accurve.append(acc)
-
-    # print(violincurve)
-    # print(datapoint_selection)
-    # input()
-
-    # np.swapaxes(np.asarray(violincurve), 0, 1)
-    # print(np.asarray(violincurve).shape)
-    v = np.swapaxes(np.asarray(accurve), 0, 1)
-    # v = np.flip(np.asarray(violincurve))
-    # print(v.ashape)
-    # axes.plot(v)
-    datapoint_selection = np.log10(datapoint_selection)
-    axes[0].violinplot(dataset=v, positions=datapoint_selection, showmeans=True, showextrema=True, widths=0.1)
-    axes[0].plot(datapoint_selection, np.mean(v, axis=0))
-    # axes.scatter(datapoint_selection, np.mean(v, axis=0))
-
-    axes[0].grid(True)
-    axes[0].set_xticks([-2, -1, -0.3, 0])
-    axes[0].set_xticklabels([0.01, 0.1, 0.5, 1])
-    # axes.set_xscale('log',base=10)
-    fig.tight_layout(pad=1)
-
     plt.show()
     return
 
@@ -752,7 +679,8 @@ def main():
 
     # PlotAccuracyBinary("test_binary/")
 
-    PlotAccuracyP1("Run_07_19_p1scan/")
+    PlotAccuracyP1("Run_07_19_p1scan/", included_nets=["Conv2", "Conv4", "Conv6"], included_p1=[0.4, 0.5, 0.6, 0.7, 0.8, 0.9], tickallpoints=True)
+    PlotAccuracyP1("Run_07_19_p1scan/", included_nets=["LeNet"])
 
     return 0
 
