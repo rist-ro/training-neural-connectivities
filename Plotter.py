@@ -571,9 +571,13 @@ def PlotAccuracyP1(mypath, included_nets=None, included_p1=None, tickallpoints=N
         start = -1
         end = None
         testAccuracy = np.max(LogFile['testAccuracy'])
-        if testAccuracy < 0.61:
+        # if testAccuracy < 0.61:
+        #     continue
+        if nettype == "Conv6" and testAccuracy < 0.6:
             continue
-        if nettype == "Conv4" and testAccuracy < 0.7:
+        if nettype == "Conv4"  and p1==.4 and testAccuracy < 0.68:
+            continue
+        if nettype == "Conv2"  and p1==.4 and testAccuracy < 0.6:
             continue
         total_weights = np.sum(np.asarray(LogFile['neg_zero_pos_masks'][start:end])[0])
         changed_weights = (total_weights - np.min(np.asarray(LogFile['neg_zero_pos_masks'][start:end])[:, 2])) / total_weights
@@ -704,7 +708,7 @@ def main():
     # PlotAccuracyBinary("test_binary/")
 
     PlotAccuracyP1("Run_07_19_p1scan/", included_nets=["Conv2", "Conv4", "Conv6"], included_p1=[0.4, 0.5, 0.6, 0.7, 0.8, 0.9], tickallpoints=True)
-    PlotAccuracyP1("Run_07_19_p1scan/", included_nets=["LeNet"])
+    # PlotAccuracyP1("Run_07_19_p1scan/", included_nets=["LeNet"])
 
     return 0
 
